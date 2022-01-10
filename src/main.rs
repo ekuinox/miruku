@@ -2,6 +2,7 @@ use anyhow::Result;
 use clap::Parser;
 
 mod thumbs;
+mod server;
 
 #[derive(Parser, Debug)]
 #[clap(about, version, author)]
@@ -13,7 +14,9 @@ struct CreateThumbsSubcommand {
 #[derive(Parser, Debug)]
 #[clap(about, version, author)]
 struct StartServerSubcommand {
-    source: String,
+    images_dir: String,
+    thumbs_dir: String,
+    port: u64,
 }
 
 #[derive(Parser, Debug)]
@@ -34,6 +37,18 @@ async fn main() -> Result<()> {
     match args {
         App::StartServerSubcommand(s) => {
             dbg!(&s);
+
+            use server::*;
+            use std::path::Path;
+            
+            let server = Server {
+                images_dir: Path::new(&s.images_dir),
+                thumbs_dir: Path::new(&s.thumbs_dir),
+                port: s.port,
+            };
+
+            let _ = server.start().await?;
+
             Ok(())
         },
         App::CreateThumbsSubcommand(s) => {
