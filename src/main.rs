@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 
-mod create_thumbs;
+mod thumbs;
 
 #[derive(Parser, Debug)]
 #[clap(about, version, author)]
@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
         App::CreateThumbsSubcommand(s) => {
             dbg!(&s);
 
-            use create_thumbs::*;
+            use thumbs::*;
             use std::path::Path;
             let source = Path::new(&s.source);
             let dest = Path::new(&s.dest);
