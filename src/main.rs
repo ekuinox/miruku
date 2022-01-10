@@ -1,6 +1,8 @@
 use anyhow::Result;
 use clap::Parser;
 
+mod create_thumbs;
+
 #[derive(Parser, Debug)]
 #[clap(about, version, author)]
 struct CreateThumbsSubcommand {
@@ -32,11 +34,17 @@ async fn main() -> Result<()> {
     match args {
         App::StartServerSubcommand(s) => {
             dbg!(&s);
+            Ok(())
         },
         App::CreateThumbsSubcommand(s) => {
             dbg!(&s);
-        },
-    };
 
-    Ok(())
+            use create_thumbs::*;
+            use std::path::Path;
+            let source = Path::new(&s.source);
+            let dest = Path::new(&s.dest);
+            let _ = create_thumbs(source, dest)?;
+            Ok(())
+        },
+    }
 }
