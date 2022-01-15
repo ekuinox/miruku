@@ -19,6 +19,9 @@ struct StartServerSubcommand {
 struct GenerateMediaSubcommand {
     origin: String,
     dest: String,
+
+    #[clap(long)]
+    without_remove: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -42,7 +45,7 @@ async fn main() -> Result<()> {
 
             use server::*;
             use std::path::Path;
-            
+
             let server = Server {
                 data_dir: Path::new(&s.data_dir),
                 port: s.port,
@@ -51,7 +54,7 @@ async fn main() -> Result<()> {
             let _ = server.start().await?;
 
             Ok(())
-        },
+        }
         App::GenerateMediaSubcommand(s) => {
             use media::*;
             use std::path::Path;
@@ -59,19 +62,23 @@ async fn main() -> Result<()> {
             let origin = Path::new(&s.origin);
             let dest = Path::new(&s.dest);
 
+            let option = MediaGenerateOption {
+                is_remove_source: !s.without_remove,
+            };
+
             if origin.is_dir() {
-                let medias = Media::generate_many(&origin, &dest).await?;
+                let medias = Media::generate_many(&origin, &dest, &option).await?;
 
                 dbg!(&medias);
 
-                return Ok(())
+                return Ok(());
             }
 
-            let media = Media::generate(&origin, &dest).await?;
+            let media = Media::generate(&origin, &dest, &option).await?;
 
             dbg!(&media);
 
             Ok(())
-        },
+        }
     }
 }

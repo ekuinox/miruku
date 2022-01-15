@@ -18,11 +18,25 @@ impl From<MediaMeta> for Media {
     }
 }
 
+pub struct MediaGenerateOption {
+    /// ファイルをコピーした後、元のファイルを削除する
+    pub is_remove_source: bool,
+}
+
+impl Default for MediaGenerateOption {
+    fn default() -> Self {
+        MediaGenerateOption {
+            is_remove_source: true,
+        }
+    }
+}
+
 impl Media {
     /// ファイルを指定して生成する
     pub async fn generate(
         origin: &Path,
         data_directory: &Path,
+        option: &MediaGenerateOption
     ) -> Result<Self> {
         use tokio::fs::*;
         use super::thumb::create_thumb;
@@ -60,6 +74,10 @@ impl Media {
             .join(name);
         let _ = copy(origin, &dest).await?;
 
+        if option.is_remove_source {
+            remove_file(origin).await?;
+        }
+
         Ok(media)
     }
 
@@ -67,6 +85,7 @@ impl Media {
     pub async fn generate_many(
         source_directory: &Path,
         data_directory: &Path,
+        option: &MediaGenerateOption
     ) -> Result<Vec<Self>> {
         use tokio_stream::{self as stream, StreamExt};
         use indicatif::ProgressBar;
@@ -77,9 +96,9 @@ impl Media {
             .map(|s| source_directory.join(s))
             .collect::<Vec<PathBuf>>();
 
-        // TODO: 重複を避ける
-
-        let entries = entries.iter().map(|entry| Media::generate(&entry, data_directory));
+        let entries = entries.iter().map(|entry|
+            Media::generate(&entry, data_directory, option)
+        );
         let mut medias = Vec::<Media>::with_capacity(entries.len());
         let mut stream = stream::iter(entries);
 
