@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use actix_web::{get, HttpResponse, web};
-use super::AppState;
+use crate::server::AppState;
 
 pub mod response {
     use std::collections::HashMap;
@@ -28,7 +28,7 @@ pub mod response {
 pub async fn get_media_ids(state: web::Data<AppState>) -> HttpResponse {
     use crate::media::*;
     use response::MediaIds;
-    let data_directory = &state.images_dir.join(common::MEDIA_DIRECTORY_NAME);
+    let data_directory = &state.data_dir.join(common::MEDIA_DIRECTORY_NAME);
 
     match MediaMeta::ids(data_directory).await {
         Ok(ids) => {
@@ -48,7 +48,7 @@ pub async fn get_media_thumb(
     state: web::Data<AppState>
 ) -> HttpResponse {
     use crate::media::*;
-    let data_directory = &state.images_dir.join(common::MEDIA_DIRECTORY_NAME);
+    let data_directory = &state.data_dir.join(common::MEDIA_DIRECTORY_NAME);
 
     let meta = match MediaMeta::open(data_directory, &path.into_inner()).await {
         Ok(meta) => meta,
@@ -73,7 +73,7 @@ pub async fn get_media_origin(
     state: web::Data<AppState>
 ) -> HttpResponse {
     use crate::media::*;
-    let data_directory = &state.images_dir.join(common::MEDIA_DIRECTORY_NAME);
+    let data_directory = &state.data_dir.join(common::MEDIA_DIRECTORY_NAME);
 
     let meta = match MediaMeta::open(data_directory, &path.into_inner()).await {
         Ok(meta) => meta,
@@ -100,7 +100,7 @@ pub async fn get_media_meta(
     use crate::media::*;
     use response::Meta;
 
-    let data_directory = &state.images_dir;
+    let data_directory = &state.data_dir.join(common::MEDIA_DIRECTORY_NAME);
 
     let meta = match MediaMeta::open(data_directory, &path.into_inner()).await {
         Ok(meta) => meta,
