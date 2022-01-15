@@ -22,12 +22,17 @@ impl <'a> Server<'a> {
         let state = AppState {
             data_dir: self.data_dir.to_owned(),
         };
+        use actix_files::Files;
         let _ = HttpServer::new(move || App::new()
             .app_data(web::Data::new(state.clone()))
             .service(get_media_ids)
             .service(get_media_meta)
             .service(get_media_origin)
             .service(get_media_thumb)
+            .service(Files::new("/", "./front/out")
+                .prefer_utf8(true)
+                .index_file("index.html")
+            )
         )
             .bind(&bind_to)?
             .run()
