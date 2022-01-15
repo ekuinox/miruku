@@ -63,6 +63,7 @@ impl MediaMeta {
         }
     }
 
+    #[allow(dead_code)]
     pub fn make_public(self) -> Self {
         MediaMeta {
             visibility: MediaVisibility::Public,
@@ -70,6 +71,7 @@ impl MediaMeta {
         }
     }
 
+    #[allow(dead_code)]
     pub fn make_private(self) -> Self {
         MediaMeta {
             visibility: MediaVisibility::Private,
