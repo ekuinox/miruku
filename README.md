@@ -19,6 +19,7 @@ mediaId: string
 media/{mediaId}/meta.toml
 
 meta {
+    id: MediaId
     visibility: (private, public)
     origin: string
     attributes: map<string, string>

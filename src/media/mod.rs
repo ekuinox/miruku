@@ -1,0 +1,181 @@
+mod thumb;
+
+use anyhow::Result;
+use rayon::iter::IntoParallelRefIterator;
+use std::{path::{Path, PathBuf}, ops::Deref, collections::HashMap};
+use serde::{Serialize, Deserialize};
+
+const META_DATA_FILE_NAME: &'static str = "meta.toml";
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MediaVisibility {
+    Private,
+    Public,
+}
+
+impl Default for MediaVisibility {
+    fn default() -> Self {
+        MediaVisibility::Private
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct MediaId(String);
+
+impl MediaId {
+    pub fn new() -> Self {
+        use uuid::Uuid;
+        MediaId(Uuid::new_v4().to_string())
+    }
+}
+
+impl Deref for MediaId {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MediaMeta {
+    pub id: MediaId,
+    pub origin: String,
+    pub visibility: MediaVisibility,
+    pub attributes: HashMap<String, String>,
+}
+
+impl MediaMeta {
+    pub fn new(origin: String) -> Self {
+        MediaMeta {
+            origin,
+            id: MediaId::new(),
+            visibility: Default::default(),
+            attributes: Default::default(),
+        }
+    }
+
+    pub fn make_public(self) -> Self {
+        MediaMeta {
+            visibility: MediaVisibility::Public,
+            ..self
+        }
+    }
+
+    pub fn make_private(self) -> Self {
+        MediaMeta {
+            visibility: MediaVisibility::Private,
+            ..self
+        }
+    }
+
+    pub async fn save(&self, data_directory: &Path) -> Result<()> {
+        use tokio::fs::*;
+        use tokio::io::AsyncWriteExt;
+
+        let media_directory = data_directory.join(&*self.id);
+
+        let _ = create_dir_all(&media_directory).await?;
+
+        let meta_path = media_directory.join(META_DATA_FILE_NAME);
+
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .open(&meta_path)
+            .await?;
+
+        let serialized = toml::to_vec(&self)?;
+
+        let _ = file.write_all(&serialized).await?;
+
+        Ok(())
+    }
+
+    pub async fn open(data_directory: &Path, media_id: &String) -> Result<Self> {
+        use tokio::fs::File;
+        use tokio::io::AsyncReadExt;
+
+        let meta_path = data_directory
+            .join(&*media_id)
+            .join(META_DATA_FILE_NAME);
+
+        let mut file = File::open(meta_path).await?;
+        let mut buf = Vec::<u8>::new();
+        let _ = file.read_to_end(&mut buf).await?;
+        
+        let meta = toml::from_slice::<Self>(&buf)?;
+
+        Ok(meta)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Media {
+    pub meta: MediaMeta,
+}
+
+impl Media {
+    pub async fn generate(
+        origin: &Path,
+        data_directory: &Path,
+    ) -> Result<Self> {
+        use tokio::fs::*;
+        use thumb::create_thumb;
+
+        let media_directory = data_directory.join("media");
+
+        let name = origin.file_name()
+            .map(|s| s.to_str().map(|s| s.to_string()))
+            .flatten();
+        let name = match name {
+            Some(name) => name,
+            None => return Err(anyhow!("origin path is not satisfied")),
+        };
+
+        // generate meta data
+        let meta = MediaMeta::new(name.clone());
+        let media_id = meta.id.clone();
+        let _ = meta.save(&media_directory).await?;
+
+        let media = Media { meta };
+
+        // generate thumbnail
+        let dest = media_directory
+            .join(&*media_id)
+            .join("thumb.jpg");
+
+        let _ = create_thumb(origin, &dest)?;
+
+        // copy
+        let dest = media_directory
+            .join(&*media_id)
+            .join(name);
+        let _ = copy(origin, &dest).await?;
+
+        Ok(media)
+    }
+
+    pub async fn generate_many(
+        source_directory: &Path,
+        data_directory: &Path,
+    ) -> Result<Vec<Self>> {
+        use thumb::*;
+
+        // source のファイル一覧を取得
+        let entries = get_image_filenames(source_directory)?;
+        let entries = entries.into_iter()
+            .map(|s| source_directory.join(s))
+            .collect::<Vec<PathBuf>>();
+
+        let mut medias = Vec::<Media>::with_capacity(entries.len());
+
+        for entry in entries {
+            if let Ok(media) = Media::generate(&entry, data_directory).await {
+                medias.push(media);
+            }
+        }
+
+        Ok(medias)
+    }
+}
