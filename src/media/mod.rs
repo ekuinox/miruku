@@ -1,7 +1,7 @@
 mod thumb;
 
 use anyhow::Result;
-use rayon::iter::IntoParallelRefIterator;
+use tokio::task;
 use std::{path::{Path, PathBuf}, ops::Deref, collections::HashMap};
 use serde::{Serialize, Deserialize};
 
@@ -116,6 +116,7 @@ pub struct Media {
 }
 
 impl Media {
+    /// ファイルを指定して生成する
     pub async fn generate(
         origin: &Path,
         data_directory: &Path,
@@ -145,7 +146,10 @@ impl Media {
             .join(&*media_id)
             .join("thumb.jpg");
 
-        let _ = create_thumb(origin, &dest)?;
+        let source = origin.to_owned();
+        let _ = task::spawn_blocking(move || {
+            create_thumb(&source, &dest)
+        }).await?;
 
         // copy
         let dest = media_directory
@@ -156,6 +160,7 @@ impl Media {
         Ok(media)
     }
 
+    /// ディレクトリを指定して読み込む
     pub async fn generate_many(
         source_directory: &Path,
         data_directory: &Path,
@@ -167,13 +172,17 @@ impl Media {
         let entries = entries.into_iter()
             .map(|s| source_directory.join(s))
             .collect::<Vec<PathBuf>>();
+        use tokio_stream::{self as stream, StreamExt};
 
+        // TODO: 重複を避ける
+
+        let entries = entries.iter().map(|entry| Media::generate(&entry, data_directory));
         let mut medias = Vec::<Media>::with_capacity(entries.len());
+        let mut stream = stream::iter(entries);
 
-        for entry in entries {
-            if let Ok(media) = Media::generate(&entry, data_directory).await {
-                medias.push(media);
-            }
+        while let Some(entry) = stream.next().await {
+            let ent = entry.await?;
+            medias.push(ent)
         }
 
         Ok(medias)
