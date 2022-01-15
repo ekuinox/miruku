@@ -1,16 +1,51 @@
 import React, { useEffect, useState } from 'react';
+import ImageList from '@mui/material/ImageList';
+import ImageListItem from '@mui/material/ImageListItem';
+import { getMediaIds } from '../api';
+
+const Image = ({ id }: { id: string }): JSX.Element => {
+  return (
+    <ImageListItem key={id}>
+      <a href={`/media/origin/${id}`}>
+        <img
+          src={`/media/thumb/${id}`}
+          alt={id}
+          loading="lazy"
+        />
+      </a>
+    </ImageListItem>
+  );
+};
+
+const Images = ({ ids }: { ids: ReadonlyArray<string> }): JSX.Element => {
+  return (
+    <ImageList cols={2}>
+      {ids.map((id) => <Image key={id} id={id} />)}
+    </ImageList>
+  );
+};
 
 const Home = (): JSX.Element => {
-  const [ids, setIds] = useState([]);
+  const [ids, setIds] = useState<ReadonlyArray<string> | null>(null);
   useEffect(() => {
-    fetch('/media/ids').then((r) => r.json()).then((r) => setIds(r.ids));
+    getMediaIds().then((mediaIds) => {
+      if (mediaIds == null) {
+        return;
+      }
+      setIds(mediaIds.ids ?? []);
+    });
   }, []);
 
+  if (ids == null) {
+    return (
+      <span>
+        null
+      </span>
+    );
+  }
+
   return (
-    <div>
-      {ids.map((id) => <span>{id}</span>)}
-      hello world
-    </div>
+    <Images ids={ids} />
   );
 };
 
