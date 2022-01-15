@@ -1,19 +1,21 @@
-
 use anyhow::Result;
-use once_cell::sync::Lazy;
-use regex::Regex;
 use tokio::task;
 use std::path::{Path, PathBuf};
 use super::meta::*;
+use super::common::*;
 
-// JPEG画像をフィルタするための正規表現
-pub static JPEG_FILE_EXT_REGEX: Lazy<Regex> = Lazy::new(
-    || Regex::new(r"\.jpe?g$").expect("JPEG_FILE_EXT_REGEX is not valid")
-);
+// サムネイルの画像ファイル名
+const THUMB_FILE_NAME: &'static str = "thumb.jpg";
 
 #[derive(Debug, Clone)]
 pub struct Media {
     pub meta: MediaMeta,
+}
+
+impl From<MediaMeta> for Media {
+    fn from(meta: MediaMeta) -> Self {
+        Media { meta }
+    }
 }
 
 impl Media {
@@ -25,7 +27,7 @@ impl Media {
         use tokio::fs::*;
         use super::thumb::create_thumb;
 
-        let media_directory = data_directory.join("media");
+        let media_directory = data_directory.join(MEDIA_DIRECTORY_NAME);
 
         let name = origin.file_name()
             .map(|s| s.to_str().map(|s| s.to_string()))
@@ -45,7 +47,7 @@ impl Media {
         // generate thumbnail
         let dest = media_directory
             .join(&*media_id)
-            .join("thumb.jpg");
+            .join(THUMB_FILE_NAME);
 
         let source = origin.to_owned();
         let _ = task::spawn_blocking(move || {
@@ -92,36 +94,34 @@ impl Media {
 
         Ok(medias)
     }
-}
 
+    /// サムネイルを取得する
+    pub async fn get_thumb(&self, data_directory: &Path) -> Result<Vec<u8>> {
+        use tokio::fs::*;
+        use tokio::io::AsyncReadExt;
 
-/// dir 下のファイル名をStringのリストで取得する
-fn get_filenames(dir: &Path) -> Result<Vec<String>> {
-    use std::fs::*;
+        let path = data_directory.join(&*self.meta.id).join(THUMB_FILE_NAME);
 
-    let entries = read_dir(dir)?;
+        let mut file = File::open(&path).await?;
+        let mut buf = Vec::<u8>::new();
 
-    // ファイル一覧をStringで取得
-    let entries = entries.into_iter()
-        .flat_map(|entry| {
-            if let Ok(entry) = entry {
-                entry.file_name().to_str().map(|s| s.to_string())
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<String>>();
-    Ok(entries)
-}
+        let _ = file.read_to_end(&mut buf).await?;
 
-/// 画像(jpeg)ファイルのみをリストで取得する
-fn get_image_filenames(dir: &Path) -> Result<Vec<String>> {
-    let entries = get_filenames(dir)?;
+        Ok(buf)
+    }
 
-    // jpegファイルでフィルタ
-    let entries = entries.into_iter()
-        .filter(|s| JPEG_FILE_EXT_REGEX.is_match(&s.to_lowercase()))
-        .collect::<Vec<String>>();
+    /// オリジナルの画像を取得する
+    pub async fn get_origin(&self, data_directory: &Path) -> Result<Vec<u8>> {
+        use tokio::fs::*;
+        use tokio::io::AsyncReadExt;
 
-    Ok(entries)
+        let path = data_directory.join(&*self.meta.id).join(&self.meta.origin);
+
+        let mut file = File::open(&path).await?;
+        let mut buf = Vec::<u8>::new();
+
+        let _ = file.read_to_end(&mut buf).await?;
+
+        Ok(buf)
+    }
 }

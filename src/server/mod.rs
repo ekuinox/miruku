@@ -30,6 +30,10 @@ impl <'a> Server<'a> {
             .service(get_photo_list)
             .service(get_thumb)
             .service(get_photo)
+            .service(get_media_ids)
+            .service(get_media_meta)
+            .service(get_media_origin)
+            .service(get_media_thumb)
         )
             .bind(&bind_to)?
             .run()

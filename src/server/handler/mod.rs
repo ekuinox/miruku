@@ -1,5 +1,8 @@
+mod media;
+
 use actix_web::{get, HttpResponse, web};
 use super::AppState;
+pub use media::*;
 
 pub mod response {
     use serde::Serialize;

@@ -1,3 +1,4 @@
+pub mod common;
 mod media;
 mod meta;
 mod thumb;

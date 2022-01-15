@@ -1,6 +1,6 @@
 use anyhow::Result;
-use std::{path::Path, ops::Deref, collections::HashMap};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, ops::Deref, path::Path};
 
 /// メタファイルの名前
 const META_DATA_FILE_NAME: &'static str = "meta.toml";
@@ -27,6 +27,12 @@ impl MediaId {
     pub fn new() -> Self {
         use uuid::Uuid;
         MediaId(Uuid::new_v4().to_string())
+    }
+}
+
+impl From<String> for MediaId {
+    fn from(id: String) -> Self {
+        Self(id)
     }
 }
 
@@ -98,16 +104,32 @@ impl MediaMeta {
         use tokio::fs::File;
         use tokio::io::AsyncReadExt;
 
-        let meta_path = data_directory
-            .join(&*media_id)
-            .join(META_DATA_FILE_NAME);
+        let meta_path = data_directory.join(&*media_id).join(META_DATA_FILE_NAME);
 
         let mut file = File::open(meta_path).await?;
         let mut buf = Vec::<u8>::new();
         let _ = file.read_to_end(&mut buf).await?;
-        
+
         let meta = toml::from_slice::<Self>(&buf)?;
 
         Ok(meta)
+    }
+
+    pub async fn ids(data_directory: &Path) -> Result<Vec<MediaId>> {
+        use tokio::fs::*;
+
+        let mut entries = read_dir(data_directory).await?;
+        let mut ids = Vec::<MediaId>::new();
+
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            // ディレクトリであれば、メディアの各ファイルが入っているものとみなす
+            if entry.path().is_dir() {
+                if let Some(name) = entry.file_name().to_str().map(|s| s.to_string()) {
+                    ids.push(name.into());
+                }
+            }
+        }
+
+        Ok(ids)
     }
 }
