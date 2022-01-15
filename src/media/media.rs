@@ -90,7 +90,7 @@ impl Media {
 
 
 /// dir 下のファイル名をStringのリストで取得する
-pub fn get_filenames(dir: &Path) -> Result<Vec<String>> {
+fn get_filenames(dir: &Path) -> Result<Vec<String>> {
     use std::fs::*;
 
     let entries = read_dir(dir)?;
@@ -109,7 +109,7 @@ pub fn get_filenames(dir: &Path) -> Result<Vec<String>> {
 }
 
 /// 画像(jpeg)ファイルのみをリストで取得する
-pub fn get_image_filenames(dir: &Path) -> Result<Vec<String>> {
+fn get_image_filenames(dir: &Path) -> Result<Vec<String>> {
     let entries = get_filenames(dir)?;
 
     // jpegファイルでフィルタ
