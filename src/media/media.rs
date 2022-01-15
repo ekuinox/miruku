@@ -66,12 +66,14 @@ impl Media {
         source_directory: &Path,
         data_directory: &Path,
     ) -> Result<Vec<Self>> {
+        use tokio_stream::{self as stream, StreamExt};
+        use indicatif::ProgressBar;
+
         // source のファイル一覧を取得
         let entries = get_image_filenames(source_directory)?;
         let entries = entries.into_iter()
             .map(|s| source_directory.join(s))
             .collect::<Vec<PathBuf>>();
-        use tokio_stream::{self as stream, StreamExt};
 
         // TODO: 重複を避ける
 
@@ -79,9 +81,13 @@ impl Media {
         let mut medias = Vec::<Media>::with_capacity(entries.len());
         let mut stream = stream::iter(entries);
 
+        let pb = ProgressBar::new(medias.capacity() as u64);
+
         while let Some(entry) = stream.next().await {
-            let ent = entry.await?;
-            medias.push(ent)
+            if let Ok(entry) = entry.await {
+                medias.push(entry);
+                pb.inc(1);
+            }
         }
 
         Ok(medias)
