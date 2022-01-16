@@ -14,9 +14,18 @@ a7iii から FTP で画像をアップロードする -> 画像をWebで確認�
 
 ## ディレクトリ構造
 
-mediaId: string
+`media_id` ... メディアに対するUUID
 
-media/{mediaId}/meta.toml
+```
+./data
+├── media
+│   ├── {media_id}
+│   │   ├── {origin_image}
+│   │   ├── meta.toml
+│   │   └── thumb.jpg
+```
+
+### `meta.toml` の中身
 
 meta {
     id: MediaId
@@ -25,16 +34,19 @@ meta {
     attributes: map<string, string>
 }
 
-media/{mediaId}/thumb.jpg
-media/{mediaId}/{meta.origin}
+以下のコマンドで `./source` から `./data` 下のファイルを生成する。
 
-`$ miruku import-media ./source ./data/`
+`$ miruku generate-media ./source`
 
 ## Server
 
-`$ miruku start ./data -p 9999`
+以下のコマンドで `./data` を使ってサーバを `9999` ポートで開始する。
+
+`$ miruku start-server`
+
+### API
 
 `GET /media/list` 
-`GET /media/thumb/{imageId}`
-`GET /media/origin/{imageId}`
-`GET /media/meta/{imageId}`
+`GET /media/thumb/{media_id}`
+`GET /media/origin/{media_id}`
+`GET /media/meta/{media_id}`
