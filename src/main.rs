@@ -7,10 +7,16 @@ use clap::Parser;
 mod media;
 mod server;
 
+const DEFAULT_DATA_DIR: &'static str = "./data";
+const DEFAULT_SERVER_PORT: &'static str = "9999";
+
 #[derive(Parser, Debug)]
 #[clap(about, version, author)]
 struct StartServerSubcommand {
+    #[clap(default_value = DEFAULT_DATA_DIR)]
     data_dir: String,
+    
+    #[clap(default_value = DEFAULT_SERVER_PORT)]
     port: u64,
 }
 
@@ -18,6 +24,8 @@ struct StartServerSubcommand {
 #[clap(about, version, author)]
 struct GenerateMediaSubcommand {
     origin: String,
+
+    #[clap(default_value = DEFAULT_DATA_DIR)]
     dest: String,
 
     #[clap(long)]
