@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  vsftpd:
+    image: fauria/vsftpd
+    ports:
+      - 20-21:20-21
+      - ${PASV_MIN_PORT}-${PASV_MAX_PORT}:21100-21110
+    environment:
+      - FTP_USER=${FTP_USER}
+      - FTP_PASS=${FTP_PASS}
+      - PASV_ADDRESS=${PASV_ADDRESS}
+      - PASV_MIN_PORT=${PASV_MIN_PORT}
+      - PASV_MAX_PORT=${PASV_MAX_PORT}
+    volumes:
+      - ./data/vsftpd:/home/vsftpd/${FTP_USER}
+    restart: always
