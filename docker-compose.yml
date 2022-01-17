@@ -13,5 +13,5 @@ services:
       - PASV_MIN_PORT=${PASV_MIN_PORT}
       - PASV_MAX_PORT=${PASV_MAX_PORT}
     volumes:
-      - ./data/vsftpd:/home/vsftpd/${FTP_USER}
+      - ${DATA_DIRECTORY}/vsftpd:/home/vsftpd/${FTP_USER}
     restart: always
