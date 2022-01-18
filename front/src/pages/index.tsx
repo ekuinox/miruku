@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import ImageList from '@mui/material/ImageList';
 import ImageListItem from '@mui/material/ImageListItem';
+import { LazyLoadImage } from 'react-lazy-load-image-component';
 import { getMediaIds } from '../api';
 
 const Image = ({ id }: { id: string }): JSX.Element => {
   return (
     <ImageListItem key={id}>
       <a href={`/media/origin/${id}`}>
-        <img
+        <LazyLoadImage
+          height={150}
           src={`/media/thumb/${id}`}
           alt={id}
           loading="lazy"
