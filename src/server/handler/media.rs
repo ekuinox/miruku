@@ -26,9 +26,16 @@ pub mod response {
 pub async fn get_media_ids(state: web::Data<AppState>) -> HttpResponse {
     use crate::media::*;
     use response::MediaIds;
-    let data_directory = &state.data_dir.join(common::MEDIA_DIRECTORY_NAME);
 
-    match MediaMeta::ids(data_directory).await {
+    let mut conn = match create_connection(&state.data_dir).await {
+        Ok(conn) => conn,
+        Err(err) => {
+            eprintln!("{:?}", err);
+            return HttpResponse::InternalServerError().body("");
+        },
+    };
+
+    match MediaMeta::ids(&mut conn).await {
         Ok(ids) => {
             let response = MediaIds {
                 ids,

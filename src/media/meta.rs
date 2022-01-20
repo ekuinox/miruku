@@ -54,6 +54,11 @@ pub struct MediaMeta {
     pub attributes: Option<Json<HashMap<String, String>>>,
 }
 
+#[derive(FromRow, Debug, Clone)]
+struct OnlyMediaIdRow {
+    pub media_id: MediaId,
+}
+
 impl MediaMeta {
     pub fn new(origin: String) -> Self {
         MediaMeta {
@@ -108,22 +113,14 @@ impl MediaMeta {
         Ok(meta)
     }
 
-    pub async fn ids(data_directory: &Path) -> Result<Vec<MediaId>> {
-        /// TODO: ここSQLの方でやる
-        use tokio::fs::*;
-
-        let mut entries = read_dir(data_directory).await?;
-        let mut ids = Vec::<MediaId>::new();
-
-        while let Ok(Some(entry)) = entries.next_entry().await {
-            // ディレクトリであれば、メディアの各ファイルが入っているものとみなす
-            if entry.path().is_dir() {
-                if let Some(name) = entry.file_name().to_str().map(|s| s.to_string()) {
-                    ids.push(name.into());
-                }
-            }
-        }
-
+    pub async fn ids(conn: &mut SqliteConnection) -> Result<Vec<MediaId>> {
+        let ids: Vec<OnlyMediaIdRow> = query_as("select media_id from metas")
+            .fetch_all(conn)
+            .await?;
+        let ids: Vec<MediaId> = ids
+            .into_iter()
+            .map(|row| row.media_id.into())
+            .collect();
         Ok(ids)
     }
 }
