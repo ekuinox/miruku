@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde::Serialize;
 use sqlx::{prelude::*, types::Json, SqliteConnection, query_as};
-use std::{collections::HashMap, ops::Deref, path::Path};
+use std::{collections::HashMap, ops::Deref};
 
 /// メディアのアクセスレベル
 #[derive(Type, Debug, Clone, Copy, PartialEq, Eq)]
