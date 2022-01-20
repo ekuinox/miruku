@@ -1,4 +1,6 @@
 use anyhow::Result;
+use sqlx::Connection;
+use sqlx::SqliteConnection;
 use tokio::task;
 use std::path::{Path, PathBuf};
 use super::meta::*;
@@ -6,6 +8,15 @@ use super::common::*;
 
 // サムネイルの画像ファイル名
 const THUMB_FILE_NAME: &'static str = "thumb.jpg";
+
+// SQLite3データベースを返す
+pub async fn create_connection(data_directory: &Path) -> Result<SqliteConnection> {
+    let conn = SqliteConnection::connect(
+        &format!("sqlite://{}/db.sqlite",
+        data_directory.to_string_lossy()
+    )).await?;
+    Ok(conn)
+}
 
 #[derive(Debug, Clone)]
 pub struct Media {
@@ -41,6 +52,8 @@ impl Media {
         use tokio::fs::*;
         use super::thumb::create_thumb;
 
+        let mut conn = create_connection(data_directory).await?;
+
         let media_directory = data_directory.join(MEDIA_DIRECTORY_NAME);
 
         let name = origin.file_name()
@@ -54,7 +67,7 @@ impl Media {
         // generate meta data
         let meta = MediaMeta::new(name.clone());
         let media_id = meta.id.clone();
-        let _ = meta.save(&media_directory).await?;
+        let _ = meta.save(&mut conn).await?;
 
         let media = Media { meta };
 

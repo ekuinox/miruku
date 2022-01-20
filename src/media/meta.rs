@@ -1,12 +1,11 @@
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
+use sqlx::{prelude::*, types::Json, SqliteConnection, query_as};
 use std::{collections::HashMap, ops::Deref, path::Path};
 
-/// メタファイルの名前
-const META_DATA_FILE_NAME: &'static str = "meta.toml";
-
 /// メディアのアクセスレベル
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Type, Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u32)]
 pub enum MediaVisibility {
     Private,
     Public,
@@ -20,7 +19,8 @@ impl Default for MediaVisibility {
 }
 
 /// メディアのID
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Type, Debug, Clone, PartialEq, Eq)]
+#[sqlx(transparent)]
 pub struct MediaId(String);
 
 impl MediaId {
@@ -45,12 +45,13 @@ impl Deref for MediaId {
 }
 
 /// メタファイルの構造
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(FromRow, Debug, Clone)]
 pub struct MediaMeta {
     pub id: MediaId,
     pub origin: String,
     pub visibility: MediaVisibility,
-    pub attributes: HashMap<String, String>,
+    pub date: Option<chrono::NaiveDateTime>,
+    pub attributes: Option<Json<HashMap<String, String>>>,
 }
 
 impl MediaMeta {
@@ -59,6 +60,7 @@ impl MediaMeta {
             origin,
             id: MediaId::new(),
             visibility: Default::default(),
+            date: None,
             attributes: Default::default(),
         }
     }
@@ -79,41 +81,28 @@ impl MediaMeta {
         }
     }
 
-    pub async fn save(&self, data_directory: &Path) -> Result<()> {
-        use tokio::fs::*;
-        use tokio::io::AsyncWriteExt;
-
-        let media_directory = data_directory.join(&*self.id);
-
-        let _ = create_dir_all(&media_directory).await?;
-
-        let meta_path = media_directory.join(META_DATA_FILE_NAME);
-
-        let mut file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .open(&meta_path)
+    pub async fn save(&self, conn: &mut SqliteConnection) -> Result<()> {
+        // とりあえず重複は考えない
+        let _meta = query_as::<_, MediaMeta>(r#"
+        insert into metas (id, origin, visibility, date, attributes)
+        values ($1, $2, $3, $4)
+        "#)
+            .bind(self.id.to_string())
+            .bind(self.origin.to_string())
+            .bind(self.visibility)
+            .bind(self.date)
+            .bind(self.attributes.as_ref())
+            .fetch_one(conn)
             .await?;
-
-        let serialized = toml::to_vec(&self)?;
-
-        let _ = file.write_all(&serialized).await?;
 
         Ok(())
     }
 
-    pub async fn open(data_directory: &Path, media_id: &String) -> Result<Self> {
-        use tokio::fs::File;
-        use tokio::io::AsyncReadExt;
-
-        let meta_path = data_directory.join(&*media_id).join(META_DATA_FILE_NAME);
-
-        let mut file = File::open(meta_path).await?;
-        let mut buf = Vec::<u8>::new();
-        let _ = file.read_to_end(&mut buf).await?;
-
-        let meta = toml::from_slice::<Self>(&buf)?;
-
+    pub async fn open(conn: &mut SqliteConnection, media_id: &String) -> Result<Self> {
+        let meta = query_as("select * from metas where id = ?")
+            .bind(media_id.to_string())
+            .fetch_one(conn)
+            .await?;
         Ok(meta)
     }
 

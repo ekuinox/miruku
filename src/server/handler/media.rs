@@ -14,7 +14,7 @@ pub mod response {
     pub struct Meta {
         pub id: String,
         pub origin_name: String,
-        pub attributes: HashMap<String, String>,
+        pub attributes: Option<HashMap<String, String>>,
     }
 
     #[derive(Serialize)]
@@ -48,15 +48,19 @@ pub async fn get_media_thumb(
     state: web::Data<AppState>
 ) -> HttpResponse {
     use crate::media::*;
-    let data_directory = &state.data_dir.join(common::MEDIA_DIRECTORY_NAME);
 
-    let meta = match MediaMeta::open(data_directory, &path.into_inner()).await {
+    let mut conn = match create_connection(&state.data_dir).await {
+        Ok(conn) => conn,
+        Err(_) => return HttpResponse::InternalServerError().body(""),
+    };
+
+    let meta = match MediaMeta::open(&mut conn, &path.into_inner()).await {
         Ok(meta) => meta,
         Err(_) => return HttpResponse::NotFound().body(""),
     };
     let media: Media = meta.into();
 
-    let thumb_buf = match media.get_thumb(data_directory).await {
+    let thumb_buf = match media.get_thumb(&state.data_dir).await {
         Ok(buf) => buf,
         Err(_) => return HttpResponse::InternalServerError().body(""),
     };
@@ -73,15 +77,19 @@ pub async fn get_media_origin(
     state: web::Data<AppState>
 ) -> HttpResponse {
     use crate::media::*;
-    let data_directory = &state.data_dir.join(common::MEDIA_DIRECTORY_NAME);
 
-    let meta = match MediaMeta::open(data_directory, &path.into_inner()).await {
+    let mut conn = match create_connection(&state.data_dir).await {
+        Ok(conn) => conn,
+        Err(_) => return HttpResponse::InternalServerError().body(""),
+    };
+
+    let meta = match MediaMeta::open(&mut conn, &path.into_inner()).await {
         Ok(meta) => meta,
         Err(_) => return HttpResponse::NotFound().body(""),
     };
     let media: Media = meta.into();
 
-    let thumb_buf = match media.get_origin(data_directory).await {
+    let thumb_buf = match media.get_origin(&state.data_dir).await {
         Ok(buf) => buf,
         Err(_) => return HttpResponse::InternalServerError().body(""),
     };
@@ -100,9 +108,12 @@ pub async fn get_media_meta(
     use crate::media::*;
     use response::Meta;
 
-    let data_directory = &state.data_dir.join(common::MEDIA_DIRECTORY_NAME);
+    let mut conn = match create_connection(&state.data_dir).await {
+        Ok(conn) => conn,
+        Err(_) => return HttpResponse::InternalServerError().body(""),
+    };
 
-    let meta = match MediaMeta::open(data_directory, &path.into_inner()).await {
+    let meta = match MediaMeta::open(&mut conn, &path.into_inner()).await {
         Ok(meta) => meta,
         Err(_) => return HttpResponse::NotFound().body(""),
     };
@@ -110,7 +121,7 @@ pub async fn get_media_meta(
     let response = Meta {
         id: meta.id.deref().clone(),
         origin_name: meta.origin,
-        attributes: meta.attributes,
+        attributes: meta.attributes.map(|json| json.0),
     };
 
     HttpResponse::Ok().json(response)
