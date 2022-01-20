@@ -18,12 +18,28 @@ a7iii から FTP で画像をアップロードする -> 画像をWebで確認�
 
 ```
 ./data
+├── db.sqlite3 ... メタ情報を保持する（こっちをmetaの正にする）
 ├── media
 │   ├── {media_id}
 │   │   ├── {origin_image}
-│   │   ├── meta.toml
+│   │   ├── meta.toml ... これについては考える
 │   │   └── thumb.jpg
 ```
+
+### db.sqlite3
+
+```
+Meta {
+    id: MediaId string
+    origin: string // path
+    visibility: (private, public)
+    date: option<timestamp> // 写真の撮影時
+    device: option<string> // 撮影した機器の名前
+    attributes: Json // なんでもつっこむ用
+}
+```
+
+とりあえずマイグレーションはsqlxに頼る
 
 ### `meta.toml` の中身
 
