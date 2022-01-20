@@ -1,20 +1,21 @@
+use super::common::*;
+use super::meta::*;
 use anyhow::Result;
 use sqlx::Connection;
 use sqlx::SqliteConnection;
-use tokio::task;
 use std::path::{Path, PathBuf};
-use super::meta::*;
-use super::common::*;
+use tokio::task;
 
 // サムネイルの画像ファイル名
 const THUMB_FILE_NAME: &'static str = "thumb.jpg";
 
 // SQLite3データベースを返す
 pub async fn create_connection(data_directory: &Path) -> Result<SqliteConnection> {
-    let conn = SqliteConnection::connect(
-        &format!("sqlite://{}/db.sqlite3",
+    let conn = SqliteConnection::connect(&format!(
+        "sqlite://{}/db.sqlite3",
         data_directory.to_string_lossy()
-    )).await?;
+    ))
+    .await?;
     Ok(conn)
 }
 
@@ -47,19 +48,15 @@ impl Media {
     pub async fn generate(
         origin: &Path,
         data_directory: &Path,
-        option: &MediaGenerateOption
+        option: &MediaGenerateOption,
     ) -> Result<Self> {
-        use tokio::fs::*;
         use super::thumb::create_thumb;
-
-        println!("{:?}", origin);
+        use tokio::fs::*;
 
         let mut conn = create_connection(data_directory).await?;
-        println!("conn ok");
 
-        let media_directory = data_directory.join(MEDIA_DIRECTORY_NAME);
-
-        let name = origin.file_name()
+        let name = origin
+            .file_name()
             .map(|s| s.to_str().map(|s| s.to_string()))
             .flatten();
         let name = match name {
@@ -72,49 +69,48 @@ impl Media {
         let media_id = meta.media_id.clone();
         let _ = meta.save(&mut conn).await?;
 
-        let media = Media { meta };
+        // media_id に応じたディレクトリのパス
+        let media_directory = data_directory.join(MEDIA_DIRECTORY_NAME).join(&*media_id);
+
+        // ディレクトリを掘っておく
+        let _ = create_dir_all(&media_directory).await?;
 
         // generate thumbnail
-        let dest = media_directory
-            .join(&*media_id)
-            .join(THUMB_FILE_NAME);
+        let dest = media_directory.join(THUMB_FILE_NAME);
 
         let source = origin.to_owned();
-        let _ = task::spawn_blocking(move || {
-            create_thumb(&source, &dest)
-        }).await?;
+        let _ = task::spawn_blocking(move || create_thumb(&source, &dest)).await?;
 
         // copy
-        let dest = media_directory
-            .join(&*media_id)
-            .join(name);
+        let dest = media_directory.join(name);
         let _ = copy(origin, &dest).await?;
 
         if option.is_remove_source {
             remove_file(origin).await?;
         }
 
-        Ok(media)
+        Ok(Media { meta })
     }
 
     /// ディレクトリを指定して読み込む
     pub async fn generate_many(
         source_directory: &Path,
         data_directory: &Path,
-        option: &MediaGenerateOption
+        option: &MediaGenerateOption,
     ) -> Result<Vec<Self>> {
-        use tokio_stream::{self as stream, StreamExt};
         use indicatif::ProgressBar;
+        use tokio_stream::{self as stream, StreamExt};
 
         // source のファイル一覧を取得
         let entries = get_image_filenames(source_directory)?;
-        let entries = entries.into_iter()
+        let entries = entries
+            .into_iter()
             .map(|s| source_directory.join(s))
             .collect::<Vec<PathBuf>>();
 
-        let entries = entries.iter().map(|entry|
-            Media::generate(&entry, data_directory, option)
-        );
+        let entries = entries
+            .iter()
+            .map(|entry| Media::generate(&entry, data_directory, option));
         let mut medias = Vec::<Media>::with_capacity(entries.len());
         let mut stream = stream::iter(entries);
 
@@ -135,7 +131,9 @@ impl Media {
         use tokio::fs::*;
         use tokio::io::AsyncReadExt;
 
-        let path = data_directory.join(&*self.meta.media_id).join(THUMB_FILE_NAME);
+        let path = data_directory
+            .join(&*self.meta.media_id)
+            .join(THUMB_FILE_NAME);
 
         let mut file = File::open(&path).await?;
         let mut buf = Vec::<u8>::new();
@@ -150,7 +148,9 @@ impl Media {
         use tokio::fs::*;
         use tokio::io::AsyncReadExt;
 
-        let path = data_directory.join(&*self.meta.media_id).join(&self.meta.origin);
+        let path = data_directory
+            .join(&*self.meta.media_id)
+            .join(&self.meta.origin);
 
         let mut file = File::open(&path).await?;
         let mut buf = Vec::<u8>::new();
