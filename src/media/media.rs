@@ -132,6 +132,7 @@ impl Media {
         use tokio::io::AsyncReadExt;
 
         let path = data_directory
+            .join(MEDIA_DIRECTORY_NAME)
             .join(&*self.meta.media_id)
             .join(THUMB_FILE_NAME);
 
@@ -149,6 +150,7 @@ impl Media {
         use tokio::io::AsyncReadExt;
 
         let path = data_directory
+            .join(MEDIA_DIRECTORY_NAME)
             .join(&*self.meta.media_id)
             .join(&self.meta.origin);
 
