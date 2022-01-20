@@ -47,7 +47,7 @@ impl Deref for MediaId {
 /// メタファイルの構造
 #[derive(FromRow, Debug, Clone)]
 pub struct MediaMeta {
-    pub id: MediaId,
+    pub media_id: MediaId,
     pub origin: String,
     pub visibility: MediaVisibility,
     pub date: Option<chrono::NaiveDateTime>,
@@ -58,7 +58,7 @@ impl MediaMeta {
     pub fn new(origin: String) -> Self {
         MediaMeta {
             origin,
-            id: MediaId::new(),
+            media_id: MediaId::new(),
             visibility: Default::default(),
             date: None,
             attributes: Default::default(),
@@ -84,16 +84,18 @@ impl MediaMeta {
     pub async fn save(&self, conn: &mut SqliteConnection) -> Result<()> {
         // とりあえず重複は考えない
         let _meta = query_as::<_, MediaMeta>(r#"
-        insert into metas (id, origin, visibility, date, attributes)
-        values ($1, $2, $3, $4)
+        insert into metas (media_id, origin, visibility, date, attributes)
+        values ($1, $2, $3, $4, $5)
+        returning *
         "#)
-            .bind(self.id.to_string())
+            .bind(self.media_id.to_string())
             .bind(self.origin.to_string())
             .bind(self.visibility)
             .bind(self.date)
             .bind(self.attributes.as_ref())
             .fetch_one(conn)
-            .await?;
+            .await;
+        println!("{:?}", _meta);
 
         Ok(())
     }

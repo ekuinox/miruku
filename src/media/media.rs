@@ -12,7 +12,7 @@ const THUMB_FILE_NAME: &'static str = "thumb.jpg";
 // SQLite3データベースを返す
 pub async fn create_connection(data_directory: &Path) -> Result<SqliteConnection> {
     let conn = SqliteConnection::connect(
-        &format!("sqlite://{}/db.sqlite",
+        &format!("sqlite://{}/db.sqlite3",
         data_directory.to_string_lossy()
     )).await?;
     Ok(conn)
@@ -52,7 +52,10 @@ impl Media {
         use tokio::fs::*;
         use super::thumb::create_thumb;
 
+        println!("{:?}", origin);
+
         let mut conn = create_connection(data_directory).await?;
+        println!("conn ok");
 
         let media_directory = data_directory.join(MEDIA_DIRECTORY_NAME);
 
@@ -66,7 +69,7 @@ impl Media {
 
         // generate meta data
         let meta = MediaMeta::new(name.clone());
-        let media_id = meta.id.clone();
+        let media_id = meta.media_id.clone();
         let _ = meta.save(&mut conn).await?;
 
         let media = Media { meta };
@@ -132,7 +135,7 @@ impl Media {
         use tokio::fs::*;
         use tokio::io::AsyncReadExt;
 
-        let path = data_directory.join(&*self.meta.id).join(THUMB_FILE_NAME);
+        let path = data_directory.join(&*self.meta.media_id).join(THUMB_FILE_NAME);
 
         let mut file = File::open(&path).await?;
         let mut buf = Vec::<u8>::new();
@@ -147,7 +150,7 @@ impl Media {
         use tokio::fs::*;
         use tokio::io::AsyncReadExt;
 
-        let path = data_directory.join(&*self.meta.id).join(&self.meta.origin);
+        let path = data_directory.join(&*self.meta.media_id).join(&self.meta.origin);
 
         let mut file = File::open(&path).await?;
         let mut buf = Vec::<u8>::new();

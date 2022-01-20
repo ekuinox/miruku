@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use actix_web::{get, HttpResponse, web};
 use crate::server::AppState;
 
@@ -37,7 +35,10 @@ pub async fn get_media_ids(state: web::Data<AppState>) -> HttpResponse {
             };
             HttpResponse::Ok().json(response)
         },
-        Err(_) => HttpResponse::InternalServerError().body(""),
+        Err(err) => {
+            eprintln!("{:?}", err);
+            return HttpResponse::InternalServerError().body("");
+        },
     }
 }
 
@@ -51,7 +52,10 @@ pub async fn get_media_thumb(
 
     let mut conn = match create_connection(&state.data_dir).await {
         Ok(conn) => conn,
-        Err(_) => return HttpResponse::InternalServerError().body(""),
+        Err(err) => {
+            eprintln!("{:?}", err);
+            return HttpResponse::InternalServerError().body("");
+        },
     };
 
     let meta = match MediaMeta::open(&mut conn, &path.into_inner()).await {
@@ -80,7 +84,10 @@ pub async fn get_media_origin(
 
     let mut conn = match create_connection(&state.data_dir).await {
         Ok(conn) => conn,
-        Err(_) => return HttpResponse::InternalServerError().body(""),
+        Err(err) => {
+            eprintln!("{:?}", err);
+            return HttpResponse::InternalServerError().body("");
+        },
     };
 
     let meta = match MediaMeta::open(&mut conn, &path.into_inner()).await {
@@ -105,12 +112,16 @@ pub async fn get_media_meta(
     path: web::Path<String>,
     state: web::Data<AppState>
 ) -> HttpResponse {
+    use std::ops::Deref;
     use crate::media::*;
     use response::Meta;
 
     let mut conn = match create_connection(&state.data_dir).await {
         Ok(conn) => conn,
-        Err(_) => return HttpResponse::InternalServerError().body(""),
+        Err(err) => {
+            eprintln!("{:?}", err);
+            return HttpResponse::InternalServerError().body("");
+        },
     };
 
     let meta = match MediaMeta::open(&mut conn, &path.into_inner()).await {
@@ -119,7 +130,7 @@ pub async fn get_media_meta(
     };
 
     let response = Meta {
-        id: meta.id.deref().clone(),
+        id: meta.media_id.deref().clone(),
         origin_name: meta.origin,
         attributes: meta.attributes.map(|json| json.0),
     };
