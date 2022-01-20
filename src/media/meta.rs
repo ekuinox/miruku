@@ -101,7 +101,7 @@ impl MediaMeta {
     }
 
     pub async fn open(conn: &mut SqliteConnection, media_id: &String) -> Result<Self> {
-        let meta = query_as("select * from metas where id = ?")
+        let meta = query_as("select * from metas where media_id = $1")
             .bind(media_id.to_string())
             .fetch_one(conn)
             .await?;
@@ -109,6 +109,7 @@ impl MediaMeta {
     }
 
     pub async fn ids(data_directory: &Path) -> Result<Vec<MediaId>> {
+        /// TODO: ここSQLの方でやる
         use tokio::fs::*;
 
         let mut entries = read_dir(data_directory).await?;
