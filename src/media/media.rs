@@ -85,6 +85,12 @@ impl Media {
         let dest = media_directory.join(name);
         let _ = copy(origin, &dest).await?;
 
+        // get date
+        // exif -> file created at -> now とフォールバックしたい
+        let _date = get_exif_date(&dest).await?;
+
+        // TODO: 保存
+
         if option.is_remove_source {
             remove_file(origin).await?;
         }
@@ -161,4 +167,30 @@ impl Media {
 
         Ok(buf)
     }
+}
+
+async fn get_exif_date(path: &Path) -> Result<chrono::NaiveDateTime> {
+    use std::fs::File; // ここtoio化したい
+    use std::io::BufReader;
+    use exif::{Reader, Tag, In};
+    use chrono::NaiveDateTime;
+
+    let file = File::open(path)?;
+    let mut bufreader = BufReader::new(&file);
+    let exifreader = Reader::new();
+    let exif = exifreader.read_from_container(&mut bufreader)?;
+    
+    // カメラが違えば他のフィールドで取れる可能性もあるしうーん
+    let field = match exif.get_field(Tag::DateTime, In::PRIMARY) {
+        Some(field) => field.display_value().to_string(),
+        None => return bail!("not found"), // ここなんでunreachableなの？
+    };
+
+    // できればミリ秒までの精度が欲しいけどなあ
+    let date = NaiveDateTime::parse_from_str(
+        field.as_str(),
+        "%Y-%m-%d %H:%M:%S"
+    )?;
+
+    Ok(date)
 }
