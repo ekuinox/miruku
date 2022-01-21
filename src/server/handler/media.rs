@@ -1,23 +1,22 @@
-use actix_web::{get, HttpResponse, web};
 use crate::server::AppState;
+use actix_web::{get, web, HttpResponse};
 
 pub mod response {
-    use std::collections::HashMap;
-
-    use serde::Serialize;
-
     use crate::media::MediaId;
+    use serde::Serialize;
+    use std::collections::HashMap;
 
     #[derive(Serialize)]
     pub struct Meta {
         pub id: String,
         pub origin_name: String,
+        pub date: String,
         pub attributes: Option<HashMap<String, String>>,
     }
 
     #[derive(Serialize)]
     pub struct MediaIds {
-        pub ids: Vec::<MediaId>,
+        pub ids: Vec<MediaId>,
     }
 }
 
@@ -32,29 +31,24 @@ pub async fn get_media_ids(state: web::Data<AppState>) -> HttpResponse {
         Err(err) => {
             eprintln!("{:?}", err);
             return HttpResponse::InternalServerError().body("");
-        },
+        }
     };
 
     match MediaMeta::ids(&mut conn).await {
         Ok(ids) => {
-            let response = MediaIds {
-                ids,
-            };
+            let response = MediaIds { ids };
             HttpResponse::Ok().json(response)
-        },
+        }
         Err(err) => {
             eprintln!("{:?}", err);
             return HttpResponse::InternalServerError().body("");
-        },
+        }
     }
 }
 
 /// メディアのサムネイルを取得するAPI
 #[get("/media/thumb/{media_id}")]
-pub async fn get_media_thumb(
-    path: web::Path<String>,
-    state: web::Data<AppState>
-) -> HttpResponse {
+pub async fn get_media_thumb(path: web::Path<String>, state: web::Data<AppState>) -> HttpResponse {
     use crate::media::*;
 
     let mut conn = match create_connection(&state.data_dir).await {
@@ -62,7 +56,7 @@ pub async fn get_media_thumb(
         Err(err) => {
             eprintln!("{:?}", err);
             return HttpResponse::InternalServerError().body("");
-        },
+        }
     };
 
     let meta = match MediaMeta::open(&mut conn, &path.into_inner()).await {
@@ -83,10 +77,7 @@ pub async fn get_media_thumb(
 
 /// メディアのオリジナルデータを取得するAPI
 #[get("/media/origin/{media_id}")]
-pub async fn get_media_origin(
-    path: web::Path<String>,
-    state: web::Data<AppState>
-) -> HttpResponse {
+pub async fn get_media_origin(path: web::Path<String>, state: web::Data<AppState>) -> HttpResponse {
     use crate::media::*;
 
     let mut conn = match create_connection(&state.data_dir).await {
@@ -94,7 +85,7 @@ pub async fn get_media_origin(
         Err(err) => {
             eprintln!("{:?}", err);
             return HttpResponse::InternalServerError().body("");
-        },
+        }
     };
 
     let meta = match MediaMeta::open(&mut conn, &path.into_inner()).await {
@@ -115,20 +106,17 @@ pub async fn get_media_origin(
 
 /// メタ情報を取得する
 #[get("/media/meta/{media_id}")]
-pub async fn get_media_meta(
-    path: web::Path<String>,
-    state: web::Data<AppState>
-) -> HttpResponse {
-    use std::ops::Deref;
+pub async fn get_media_meta(path: web::Path<String>, state: web::Data<AppState>) -> HttpResponse {
     use crate::media::*;
     use response::Meta;
+    use std::ops::Deref;
 
     let mut conn = match create_connection(&state.data_dir).await {
         Ok(conn) => conn,
         Err(err) => {
             eprintln!("{:?}", err);
             return HttpResponse::InternalServerError().body("");
-        },
+        }
     };
 
     let meta = match MediaMeta::open(&mut conn, &path.into_inner()).await {
@@ -139,6 +127,7 @@ pub async fn get_media_meta(
     let response = Meta {
         id: meta.media_id.deref().clone(),
         origin_name: meta.origin,
+        date: meta.date.map(|date| date.to_string()).unwrap_or_default(),
         attributes: meta.attributes.map(|json| json.0),
     };
 

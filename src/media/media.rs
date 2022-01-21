@@ -1,6 +1,7 @@
 use super::common::*;
 use super::meta::*;
 use anyhow::Result;
+use chrono::Utc;
 use sqlx::Connection;
 use sqlx::SqliteConnection;
 use std::path::{Path, PathBuf};
@@ -64,8 +65,18 @@ impl Media {
             None => return Err(anyhow!("origin path is not satisfied")),
         };
 
+        // 日付を取得する
+        // exif -> file created at -> now とフォールバックしたい
+        let date = if let Ok(date) = get_exif_date(&origin).await {
+            date
+        } else if let Ok(date) = get_file_created_date(&origin).await {
+            date
+        } else {
+            Utc::now().naive_utc()
+        };
+
         // generate meta data
-        let meta = MediaMeta::new(name.clone());
+        let meta = MediaMeta::new(name.clone()).date(date);
         let media_id = meta.media_id.clone();
         let _ = meta.save(&mut conn).await?;
 
@@ -84,12 +95,6 @@ impl Media {
         // copy
         let dest = media_directory.join(name);
         let _ = copy(origin, &dest).await?;
-
-        // get date
-        // exif -> file created at -> now とフォールバックしたい
-        let _date = get_exif_date(&dest).await?;
-
-        // TODO: 保存
 
         if option.is_remove_source {
             remove_file(origin).await?;
@@ -169,17 +174,18 @@ impl Media {
     }
 }
 
+/// EXIF から 日付を取得する
 async fn get_exif_date(path: &Path) -> Result<chrono::NaiveDateTime> {
+    use chrono::NaiveDateTime;
+    use exif::{In, Reader, Tag};
     use std::fs::File; // ここtoio化したい
     use std::io::BufReader;
-    use exif::{Reader, Tag, In};
-    use chrono::NaiveDateTime;
 
     let file = File::open(path)?;
     let mut bufreader = BufReader::new(&file);
     let exifreader = Reader::new();
     let exif = exifreader.read_from_container(&mut bufreader)?;
-    
+
     // カメラが違えば他のフィールドで取れる可能性もあるしうーん
     let field = match exif.get_field(Tag::DateTime, In::PRIMARY) {
         Some(field) => field.display_value().to_string(),
@@ -187,10 +193,29 @@ async fn get_exif_date(path: &Path) -> Result<chrono::NaiveDateTime> {
     };
 
     // できればミリ秒までの精度が欲しいけどなあ
-    let date = NaiveDateTime::parse_from_str(
-        field.as_str(),
-        "%Y-%m-%d %H:%M:%S"
-    )?;
+    let date = NaiveDateTime::parse_from_str(field.as_str(), "%Y-%m-%d %H:%M:%S")?;
 
     Ok(date)
+}
+
+/// ファイルのメタデータから日付を取得する
+async fn get_file_created_date(path: &Path) -> Result<chrono::NaiveDateTime> {
+    use chrono::NaiveDateTime;
+    use std::time::UNIX_EPOCH;
+    use tokio::fs::File;
+
+    let file = File::open(path).await?;
+    let meta = file.metadata().await?;
+
+    let created = meta.created()?;
+    let created = created.duration_since(UNIX_EPOCH)?;
+    let created = match NaiveDateTime::from_timestamp_opt(
+        created.as_secs() as i64,
+        created.as_nanos() as u32,
+    ) {
+        Some(created) => created,
+        _ => bail!("Err create NaiveDateTime"),
+    };
+
+    Ok(created)
 }

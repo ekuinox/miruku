@@ -1,4 +1,5 @@
 use anyhow::Result;
+use chrono::NaiveDateTime;
 use serde::Serialize;
 use sqlx::{prelude::*, types::Json, SqliteConnection, query_as};
 use std::{collections::HashMap, ops::Deref};
@@ -82,6 +83,14 @@ impl MediaMeta {
     pub fn make_private(self) -> Self {
         MediaMeta {
             visibility: MediaVisibility::Private,
+            ..self
+        }
+    }
+
+    pub fn date(self, date: NaiveDateTime) -> Self {
+        let date = Some(date);
+        MediaMeta {
+            date,
             ..self
         }
     }
