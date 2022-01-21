@@ -127,7 +127,7 @@ pub async fn get_media_meta(path: web::Path<String>, state: web::Data<AppState>)
     let response = Meta {
         id: meta.media_id.deref().clone(),
         origin_name: meta.origin,
-        date: meta.date.map(|date| date.to_string()).unwrap_or_default(),
+        date: meta.date.to_string(),
         attributes: meta.attributes.map(|json| json.0),
     };
 

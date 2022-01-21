@@ -76,7 +76,7 @@ impl Media {
         };
 
         // generate meta data
-        let meta = MediaMeta::new(name.clone()).date(date);
+        let meta = MediaMeta::new(name.clone(), date);
         let media_id = meta.media_id.clone();
         let _ = meta.save(&mut conn).await?;
 

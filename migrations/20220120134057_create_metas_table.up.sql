@@ -4,6 +4,6 @@ CREATE TABLE metas (
     media_id TEXT PRIMARY KEY NOT NULL,
     origin TEXT NOT NULL,
     visibility INTEGER NOT NULL,
-    date DATETIME,
+    date DATETIME NOT NULL,
     attributes JSON
 )

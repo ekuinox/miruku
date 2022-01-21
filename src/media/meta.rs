@@ -1,7 +1,7 @@
 use anyhow::Result;
 use chrono::NaiveDateTime;
 use serde::Serialize;
-use sqlx::{prelude::*, types::Json, SqliteConnection, query_as};
+use sqlx::{prelude::*, query_as, types::Json, SqliteConnection};
 use std::{collections::HashMap, ops::Deref};
 
 /// メディアのアクセスレベル
@@ -51,7 +51,7 @@ pub struct MediaMeta {
     pub media_id: MediaId,
     pub origin: String,
     pub visibility: MediaVisibility,
-    pub date: Option<chrono::NaiveDateTime>,
+    pub date: NaiveDateTime,
     pub attributes: Option<Json<HashMap<String, String>>>,
 }
 
@@ -61,12 +61,12 @@ struct OnlyMediaIdRow {
 }
 
 impl MediaMeta {
-    pub fn new(origin: String) -> Self {
+    pub fn new(origin: String, date: NaiveDateTime) -> Self {
         MediaMeta {
+            date,
             origin,
             media_id: MediaId::new(),
             visibility: Default::default(),
-            date: None,
             attributes: Default::default(),
         }
     }
@@ -87,29 +87,22 @@ impl MediaMeta {
         }
     }
 
-    pub fn date(self, date: NaiveDateTime) -> Self {
-        let date = Some(date);
-        MediaMeta {
-            date,
-            ..self
-        }
-    }
-
     pub async fn save(&self, conn: &mut SqliteConnection) -> Result<()> {
         // とりあえず重複は考えない
-        let _meta = query_as::<_, MediaMeta>(r#"
+        let _ = query_as::<_, MediaMeta>(
+            r#"
         insert into metas (media_id, origin, visibility, date, attributes)
         values ($1, $2, $3, $4, $5)
         returning *
-        "#)
-            .bind(self.media_id.to_string())
-            .bind(self.origin.to_string())
-            .bind(self.visibility)
-            .bind(self.date)
-            .bind(self.attributes.as_ref())
-            .fetch_one(conn)
-            .await;
-        println!("{:?}", _meta);
+        "#,
+        )
+        .bind(self.media_id.to_string())
+        .bind(self.origin.to_string())
+        .bind(self.visibility)
+        .bind(self.date)
+        .bind(self.attributes.as_ref())
+        .fetch_one(conn)
+        .await?;
 
         Ok(())
     }
@@ -126,10 +119,7 @@ impl MediaMeta {
         let ids: Vec<OnlyMediaIdRow> = query_as("select media_id from metas")
             .fetch_all(conn)
             .await?;
-        let ids: Vec<MediaId> = ids
-            .into_iter()
-            .map(|row| row.media_id.into())
-            .collect();
+        let ids: Vec<MediaId> = ids.into_iter().map(|row| row.media_id.into()).collect();
         Ok(ids)
     }
 }
