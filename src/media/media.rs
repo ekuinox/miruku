@@ -183,7 +183,7 @@ async fn get_exif_date(path: &Path) -> Result<chrono::NaiveDateTime> {
     // カメラが違えば他のフィールドで取れる可能性もあるしうーん
     let field = match exif.get_field(Tag::DateTime, In::PRIMARY) {
         Some(field) => field.display_value().to_string(),
-        None => return bail!("not found"), // ここなんでunreachableなの？
+        None => bail!("not found"), // ここなんでunreachableなの？
     };
 
     // できればミリ秒までの精度が欲しいけどなあ
