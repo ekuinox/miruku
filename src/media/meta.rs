@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{Duration, NaiveDateTime, Utc};
+use chrono::{NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{prelude::*, query_as, types::Json, SqliteConnection};
 use std::{collections::HashMap, ops::Deref};
@@ -62,25 +62,18 @@ impl IdsFilter {
     /// フィルタをタプルに展開する
     /// `begin` が `None` の場合は現在時刻, `end` が `None` の場合は `0`, `count` が `None` の場合は `100` をデフォルトに使用する
     pub fn build(self) -> (NaiveDateTime, NaiveDateTime, u64) {
+        fn to_naive_datetime(milli: i64) -> NaiveDateTime {
+            NaiveDateTime::from_timestamp(milli / 1000, (milli % 1000 * 1000 * 1000) as u32)
+        }
         let begin = self
             .begin
-            .map(Duration::milliseconds)
-            .map(|d| {
-                NaiveDateTime::from_timestamp(
-                    d.num_seconds(),
-                    d.num_nanoseconds().unwrap_or_default() as u32,
-                )
-            })
+            .map(to_naive_datetime)
             .unwrap_or_else(|| Utc::now().naive_utc());
+
+        println!("{}", begin);
         let end = self
             .end
-            .map(Duration::milliseconds)
-            .map(|d| {
-                NaiveDateTime::from_timestamp(
-                    d.num_seconds(),
-                    d.num_nanoseconds().unwrap_or_default() as u32,
-                )
-            })
+            .map(to_naive_datetime)
             .unwrap_or_else(|| NaiveDateTime::from_timestamp(0, 0));
         let count = self.count.unwrap_or(100);
         (begin, end, count)
@@ -98,6 +91,7 @@ impl MediaId {
         use sqlx::*;
 
         let (begin, end, count) = option.build();
+
         let visibility = if include_private {
             MediaVisibility::Private
         } else {
