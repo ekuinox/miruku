@@ -4,6 +4,7 @@ const root = '';
 
 const mediaIdsSchema = z.object({
   ids: z.array(z.string()),
+  last: z.number(),
 });
 
 const buildUrl = (path: string) => `${root}/${path}`;
@@ -16,10 +17,12 @@ export const paths = {
   },
 };
 
-export const getMediaIds = async () => {
-  const path = buildUrl(paths.media.ids);
+export const getMediaIds = async (begin: number | null, count = 100) => {
+  // クエリストリング作るところなんとかせえ
+  const path = buildUrl(paths.media.ids) + '?count=' + count;
   try {
-    const r = await fetch(path);
+    const path_ = begin != null ? `${path}&begin=${begin}` : path;
+    const r = await fetch(path_);
     const data = await r.json();
     const parsed = mediaIdsSchema.safeParse(data);
     if (parsed.success) {

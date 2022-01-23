@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ImageList from '@mui/material/ImageList';
 import ImageListItem from '@mui/material/ImageListItem';
 import { LazyLoadImage } from 'react-lazy-load-image-component';
@@ -28,26 +28,32 @@ const Images = ({ ids }: { ids: ReadonlyArray<string> }): JSX.Element => {
 };
 
 const Home = (): JSX.Element => {
-  const [ids, setIds] = useState<ReadonlyArray<string> | null>(null);
-  useEffect(() => {
-    getMediaIds().then((mediaIds) => {
+  const [ids, setIds] = useState<ReadonlyArray<string>>([]);
+  const next = useRef<number | null>(null);
+
+  const loadNext = useCallback(() => {
+    getMediaIds(next.current).then((mediaIds) => {
       if (mediaIds == null) {
         return;
       }
-      setIds(mediaIds.ids ?? []);
+      next.current = mediaIds.last;
+      const prev = ids ?? [];
+      const ids_ = (mediaIds.ids ?? []).filter((id) => !prev.includes(id));
+      setIds([...prev, ...ids_]);
     });
+  }, [ids]);
+
+  useEffect(() => {
+    loadNext();
   }, []);
 
-  if (ids == null) {
-    return (
-      <span>
-        null
-      </span>
-    );
-  }
-
   return (
-    <Images ids={ids} />
+    <div>
+      <Images ids={ids} />
+      <button onClick={loadNext}>
+        次を読み込む
+      </button>
+    </div>
   );
 };
 
