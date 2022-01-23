@@ -93,21 +93,28 @@ impl MediaId {
     pub async fn filter(
         conn: &mut SqliteConnection,
         option: IdsFilter,
+        include_private: bool,
     ) -> Result<(Vec<MediaId>, NaiveDateTime)> {
         use sqlx::*;
 
         let (begin, end, count) = option.build();
+        let visibility = if include_private {
+            MediaVisibility::Private
+        } else {
+            MediaVisibility::Public
+        };
 
         let ids: Vec<MediaIdWithDateRow> = query_as(
             r#"
-            select media_id, date from metas
-            where date between ? and ?
+            select media_id, date, visibility from metas
+            where date between ? and ? and visibility = ?
             order by date desc
             limit ?
             "#,
         )
         .bind(end.to_string())
         .bind(begin.to_string())
+        .bind(visibility)
         .bind(count as i64)
         .fetch_all(conn)
         .await?;

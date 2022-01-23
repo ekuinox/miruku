@@ -50,7 +50,9 @@ pub async fn get_media_ids(req: HttpRequest) -> HttpResponse {
         }
     };
 
-    match MediaId::filter(&mut conn, filter.into_inner()).await {
+    // TODO: ログインしていないと非公開のものを検索結果に出さないとかしたいね
+    let include_private = true;
+    match MediaId::filter(&mut conn, filter.into_inner(), include_private).await {
         Ok((ids, last)) => {
             let last = last.timestamp_millis() as u64;
             let response = MediaIds { ids, last };
