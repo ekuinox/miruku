@@ -1,6 +1,6 @@
 use anyhow::Result;
-use chrono::NaiveDateTime;
-use serde::Serialize;
+use chrono::{Duration, NaiveDateTime, Utc};
+use serde::{Deserialize, Serialize};
 use sqlx::{prelude::*, query_as, types::Json, SqliteConnection};
 use std::{collections::HashMap, ops::Deref};
 
@@ -45,6 +45,79 @@ impl Deref for MediaId {
     }
 }
 
+/// MediaId を検索するためのフィルタ
+#[derive(Deserialize, Debug)]
+pub struct IdsFilter {
+    /// 検索開始する日付開始地点をミリ秒で指定する
+    pub begin: Option<i64>,
+
+    /// 検索開始する日付終了地点をミリ秒で指定する
+    pub end: Option<i64>,
+
+    /// 取得件数を指定する
+    pub count: Option<u64>,
+}
+
+impl IdsFilter {
+    /// フィルタをタプルに展開する
+    /// `begin` が `None` の場合は現在時刻, `end` が `None` の場合は `0`, `count` が `None` の場合は `100` をデフォルトに使用する
+    pub fn build(self) -> (NaiveDateTime, NaiveDateTime, u64) {
+        let begin = self
+            .begin
+            .map(Duration::milliseconds)
+            .map(|d| {
+                NaiveDateTime::from_timestamp(
+                    d.num_seconds(),
+                    d.num_nanoseconds().unwrap_or_default() as u32,
+                )
+            })
+            .unwrap_or_else(|| Utc::now().naive_utc());
+        let end = self
+            .end
+            .map(Duration::milliseconds)
+            .map(|d| {
+                NaiveDateTime::from_timestamp(
+                    d.num_seconds(),
+                    d.num_nanoseconds().unwrap_or_default() as u32,
+                )
+            })
+            .unwrap_or_else(|| NaiveDateTime::from_timestamp(0, 0));
+        let count = self.count.unwrap_or(100);
+        (begin, end, count)
+    }
+}
+
+impl MediaId {
+    /// `MediaId` を日付で降順に検索して取得する関数
+    /// 成功すると `MediaId` のリストと最後の要素の日付を返す
+    pub async fn filter(
+        conn: &mut SqliteConnection,
+        option: IdsFilter,
+    ) -> Result<(Vec<MediaId>, NaiveDateTime)> {
+        use sqlx::*;
+
+        let (begin, end, count) = option.build();
+
+        let ids: Vec<MediaIdWithDateRow> = query_as(
+            r#"
+            select media_id, date from metas
+            where date between ? and ?
+            order by date desc
+            limit ?
+            "#,
+        )
+        .bind(end.to_string())
+        .bind(begin.to_string())
+        .bind(count as i64)
+        .fetch_all(conn)
+        .await?;
+        let last = ids.last().map(|row| row.date).unwrap_or(end);
+        let ids: Vec<MediaId> = ids.into_iter().map(|row| row.media_id.into()).collect();
+
+        Ok((ids, last))
+    }
+}
+
 /// メタファイルの構造
 #[derive(FromRow, Debug, Clone)]
 pub struct MediaMeta {
@@ -56,8 +129,9 @@ pub struct MediaMeta {
 }
 
 #[derive(FromRow, Debug, Clone)]
-struct OnlyMediaIdRow {
+struct MediaIdWithDateRow {
     pub media_id: MediaId,
+    pub date: NaiveDateTime,
 }
 
 impl MediaMeta {
@@ -113,13 +187,5 @@ impl MediaMeta {
             .fetch_one(conn)
             .await?;
         Ok(meta)
-    }
-
-    pub async fn ids(conn: &mut SqliteConnection) -> Result<Vec<MediaId>> {
-        let ids: Vec<OnlyMediaIdRow> = query_as("select media_id from metas")
-            .fetch_all(conn)
-            .await?;
-        let ids: Vec<MediaId> = ids.into_iter().map(|row| row.media_id.into()).collect();
-        Ok(ids)
     }
 }

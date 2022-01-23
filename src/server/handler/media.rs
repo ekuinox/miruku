@@ -1,5 +1,5 @@
 use crate::server::AppState;
-use actix_web::{get, web, HttpResponse};
+use actix_web::{get, web, HttpRequest, HttpResponse};
 
 pub mod response {
     use crate::media::MediaId;
@@ -17,14 +17,30 @@ pub mod response {
     #[derive(Serialize)]
     pub struct MediaIds {
         pub ids: Vec<MediaId>,
+        pub last: u64, // 一番最後の要素の日付
     }
 }
 
 /// メディアIDの一覧を取得するAPI
 #[get("/media/ids")]
-pub async fn get_media_ids(state: web::Data<AppState>) -> HttpResponse {
+pub async fn get_media_ids(req: HttpRequest) -> HttpResponse {
     use crate::media::*;
     use response::MediaIds;
+
+    let state = match req.app_data::<web::Data<AppState>>() {
+        Some(state) => state,
+        _ => {
+            return HttpResponse::InternalServerError().body("");
+        }
+    };
+
+    let filter = match web::Query::<IdsFilter>::from_query(req.query_string()) {
+        Ok(filter) => filter,
+        Err(err) => {
+            eprintln!("{:?}", err);
+            return HttpResponse::BadRequest().body("");
+        }
+    };
 
     let mut conn = match create_connection(&state.data_dir).await {
         Ok(conn) => conn,
@@ -34,9 +50,10 @@ pub async fn get_media_ids(state: web::Data<AppState>) -> HttpResponse {
         }
     };
 
-    match MediaMeta::ids(&mut conn).await {
-        Ok(ids) => {
-            let response = MediaIds { ids };
+    match MediaId::filter(&mut conn, filter.into_inner()).await {
+        Ok((ids, last)) => {
+            let last = last.timestamp_millis() as u64;
+            let response = MediaIds { ids, last };
             HttpResponse::Ok().json(response)
         }
         Err(err) => {
