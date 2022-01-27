@@ -1,43 +1,58 @@
-use anyhow::Result;
-use regex::Regex;
-use std::path::Path;
 use once_cell::sync::Lazy;
+use regex::Regex;
+use std::path::{Path, PathBuf};
 
 // JPEG画像をフィルタするための正規表現
-static JPEG_FILE_EXT_REGEX: Lazy<Regex> = Lazy::new(
-    || Regex::new(r"\.jpe?g$").expect("JPEG_FILE_EXT_REGEX is not valid")
-);
+static JPEG_FILE_EXT_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\.jpe?g$").expect("JPEG_FILE_EXT_REGEX is not valid"));
 
 // メディアのディレクトリ
 pub const MEDIA_DIRECTORY_NAME: &'static str = "media";
 
-/// dir 下のファイル名をStringのリストで取得する
-pub fn get_filenames(dir: &Path) -> Result<Vec<String>> {
+/// path のファイルを再起的に全て取得する
+pub fn get_filenames_recursive(path: &Path, depth: u32) -> Vec<PathBuf> {
     use std::fs::*;
 
-    let entries = read_dir(dir)?;
+    if depth == 0 {
+        return vec![];
+    }
 
-    // ファイル一覧をStringで取得
-    let entries = entries.into_iter()
+    let entries = match read_dir(path) {
+        Ok(entries) => entries,
+        Err(_) => return vec![],
+    };
+
+    entries
+        .into_iter()
+        .flatten()
         .flat_map(|entry| {
-            if let Ok(entry) = entry {
-                entry.file_name().to_str().map(|s| s.to_string())
+            let path = entry.path();
+            if path.is_dir() {
+                get_filenames_recursive(&path, depth - 1)
             } else {
-                None
+                vec![path.to_owned()]
             }
         })
-        .collect::<Vec<String>>();
-    Ok(entries)
+        .collect()
 }
 
 /// 画像(jpeg)ファイルのみをリストで取得する
-pub fn get_image_filenames(dir: &Path) -> Result<Vec<String>> {
-    let entries = get_filenames(dir)?;
+pub fn get_image_filenames(dir: &Path) -> Vec<String> {
+    // 最大5階層まで検索する
+    const RECURSIVE_DEPTH: u32 = 5;
+
+    let entries = get_filenames_recursive(dir, RECURSIVE_DEPTH);
+
+    let entries = entries
+        .into_iter()
+        .map(|path| path.into_os_string().to_string_lossy().to_string())
+        .collect::<Vec<_>>();
 
     // jpegファイルでフィルタ
-    let entries = entries.into_iter()
+    let entries = entries
+        .into_iter()
         .filter(|s| JPEG_FILE_EXT_REGEX.is_match(&s.to_lowercase()))
         .collect::<Vec<String>>();
 
-    Ok(entries)
+    entries
 }

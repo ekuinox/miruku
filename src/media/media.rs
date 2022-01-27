@@ -113,7 +113,7 @@ impl Media {
         use tokio_stream::{self as stream, StreamExt};
 
         // source のファイル一覧を取得
-        let entries = get_image_filenames(source_directory)?;
+        let entries = get_image_filenames(source_directory);
         let entries = entries
             .into_iter()
             .map(|s| source_directory.join(s))
