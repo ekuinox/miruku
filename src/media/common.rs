@@ -1,10 +1,7 @@
-use once_cell::sync::Lazy;
-use regex::Regex;
 use std::path::{Path, PathBuf};
 
-// JPEG画像をフィルタするための正規表現
-static JPEG_FILE_EXT_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"\.jpe?g$").expect("JPEG_FILE_EXT_REGEX is not valid"));
+/// 対象の拡張子
+static TARGET_EXTENSIONS: [&str; 2] = ["jpeg", "jpg"];
 
 // メディアのディレクトリ
 pub const MEDIA_DIRECTORY_NAME: &'static str = "media";
@@ -45,14 +42,19 @@ pub fn get_image_filenames(dir: &Path) -> Vec<String> {
 
     let entries = entries
         .into_iter()
-        .map(|path| path.into_os_string().to_string_lossy().to_string())
+        .flat_map(|path| {
+            // 対象の拡張子かチェックする
+            let is_target = path.extension().map(|ext| {
+                let ext = ext.to_string_lossy().to_string().to_lowercase();
+                TARGET_EXTENSIONS.contains(&ext.as_str())
+            }).unwrap_or(false);
+            if is_target {
+                Some(path.into_os_string().to_string_lossy().to_string())
+            } else {
+                None
+            }
+        })
         .collect::<Vec<_>>();
-
-    // jpegファイルでフィルタ
-    let entries = entries
-        .into_iter()
-        .filter(|s| JPEG_FILE_EXT_REGEX.is_match(&s.to_lowercase()))
-        .collect::<Vec<String>>();
 
     entries
 }
