@@ -4,7 +4,7 @@ use anyhow::Result;
 use chrono::Utc;
 use sqlx::Connection;
 use sqlx::SqliteConnection;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tokio::task;
 
 // サムネイルの画像ファイル名
@@ -114,10 +114,6 @@ impl Media {
 
         // source のファイル一覧を取得
         let entries = get_image_filenames(source_directory);
-        let entries = entries
-            .into_iter()
-            .map(|s| source_directory.join(s))
-            .collect::<Vec<PathBuf>>();
 
         let entries = entries
             .iter()

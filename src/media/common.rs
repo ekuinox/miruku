@@ -34,7 +34,8 @@ pub fn get_filenames_recursive(path: &Path, depth: u32) -> Vec<PathBuf> {
 }
 
 /// 画像(jpeg)ファイルのみをリストで取得する
-pub fn get_image_filenames(dir: &Path) -> Vec<String> {
+/// フルパスで取得する
+pub fn get_image_filenames(dir: &Path) -> Vec<PathBuf> {
     // 最大5階層まで検索する
     const RECURSIVE_DEPTH: u32 = 5;
 
@@ -52,7 +53,7 @@ pub fn get_image_filenames(dir: &Path) -> Vec<String> {
                 })
                 .unwrap_or(false);
             if is_target {
-                Some(path.into_os_string().to_string_lossy().to_string())
+                path.canonicalize().ok()
             } else {
                 None
             }
