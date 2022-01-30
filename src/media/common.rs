@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 /// 対象の拡張子
-static TARGET_EXTENSIONS: [&str; 2] = ["jpeg", "jpg"];
+const TARGET_EXTENSIONS: [&str; 2] = ["jpeg", "jpg"];
 
 // メディアのディレクトリ
 pub const MEDIA_DIRECTORY_NAME: &'static str = "media";
@@ -44,10 +44,13 @@ pub fn get_image_filenames(dir: &Path) -> Vec<String> {
         .into_iter()
         .flat_map(|path| {
             // 対象の拡張子かチェックする
-            let is_target = path.extension().map(|ext| {
-                let ext = ext.to_string_lossy().to_string().to_lowercase();
-                TARGET_EXTENSIONS.contains(&ext.as_str())
-            }).unwrap_or(false);
+            let is_target = path
+                .extension()
+                .map(|ext| {
+                    let ext = ext.to_string_lossy().to_string().to_lowercase();
+                    TARGET_EXTENSIONS.contains(&ext.as_str())
+                })
+                .unwrap_or(false);
             if is_target {
                 Some(path.into_os_string().to_string_lossy().to_string())
             } else {
