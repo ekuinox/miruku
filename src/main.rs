@@ -46,12 +46,12 @@ enum App {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = App::parse();
-    dbg!(&args);
+    log::debug!("{:#?}", args);
+
+    env_logger::init();
 
     match args {
         App::StartServerSubcommand(s) => {
-            dbg!(&s);
-
             use server::*;
             use std::path::Path;
 
@@ -74,10 +74,10 @@ async fn main() -> Result<()> {
                     return;
                 }
                 if let Ok(origin) = origin.canonicalize() {
-                    print!("origin = {:#?}: ", origin);
+                    log::info!("start origin ({:#?})", origin);
                     match Media::generate(&origin, &dest, &option).await {
-                        Ok(_media) => println!("OK"),
-                        Err(e) => eprintln!("{:?}", e),
+                        Ok(media) => log::info!("{:#?}: OK", media.meta.origin),
+                        Err(e) => log::info!("{:#?}: {:?}", origin, e),
                     }
                 }
             }
@@ -106,7 +106,7 @@ async fn main() -> Result<()> {
                         Ok(Write(origin)) => from_event_path(origin, &dest, &option).await,
                         Ok(Create(origin)) => from_event_path(origin, &dest, &option).await,
                         Ok(_event) => {}
-                        Err(e) => println!("watch error: {:?}", e),
+                        Err(e) => log::debug!("watch error: {:?}", e),
                     }
                 }
             }
@@ -114,14 +114,14 @@ async fn main() -> Result<()> {
             if origin.is_dir() {
                 let medias = Media::generate_many(&origin, &dest, &option).await?;
 
-                dbg!(&medias);
+                log::debug!("{:#?}", medias);
 
                 return Ok(());
             }
 
             let media = Media::generate(&origin, &dest, &option).await?;
 
-            dbg!(&media);
+            log::debug!("{:#?}", media);
 
             Ok(())
         }

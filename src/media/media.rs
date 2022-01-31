@@ -56,7 +56,7 @@ impl Media {
 
         // ハッシュ値が一致している場合は生成しない
         if let Ok(meta) = MediaMeta::get_by_hashed(&mut conn, &hashed).await {
-            // eprintln!("Already media created. file={:#?}", origin);
+            log::debug!("Already media created. file={:#?}", origin);
             return Ok(meta.into());
         }
 

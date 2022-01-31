@@ -37,7 +37,7 @@ pub async fn get_media_ids(req: HttpRequest) -> HttpResponse {
     let filter = match web::Query::<IdsFilter>::from_query(req.query_string()) {
         Ok(filter) => filter,
         Err(err) => {
-            eprintln!("{:?}", err);
+            log::debug!("{:?}", err);
             return HttpResponse::BadRequest().body("");
         }
     };
@@ -45,7 +45,7 @@ pub async fn get_media_ids(req: HttpRequest) -> HttpResponse {
     let mut conn = match create_connection(&state.data_dir).await {
         Ok(conn) => conn,
         Err(err) => {
-            eprintln!("{:?}", err);
+            log::debug!("{:?}", err);
             return HttpResponse::InternalServerError().body("");
         }
     };
@@ -59,7 +59,7 @@ pub async fn get_media_ids(req: HttpRequest) -> HttpResponse {
             HttpResponse::Ok().json(response)
         }
         Err(err) => {
-            eprintln!("{:?}", err);
+            log::debug!("{:?}", err);
             return HttpResponse::InternalServerError().body("");
         }
     }
@@ -73,7 +73,7 @@ pub async fn get_media_thumb(path: web::Path<String>, state: web::Data<AppState>
     let mut conn = match create_connection(&state.data_dir).await {
         Ok(conn) => conn,
         Err(err) => {
-            eprintln!("{:?}", err);
+            log::debug!("{:?}", err);
             return HttpResponse::InternalServerError().body("");
         }
     };
@@ -81,7 +81,7 @@ pub async fn get_media_thumb(path: web::Path<String>, state: web::Data<AppState>
     let meta = match MediaMeta::open(&mut conn, &path.into_inner()).await {
         Ok(meta) => meta,
         Err(err) => {
-            eprintln!("{:?}", err);
+            log::debug!("{:?}", err);
             return HttpResponse::NotFound().body("")
         },
     };
@@ -90,7 +90,7 @@ pub async fn get_media_thumb(path: web::Path<String>, state: web::Data<AppState>
     let thumb_buf = match media.get_thumb(&state.data_dir).await {
         Ok(buf) => buf,
         Err(err) => {
-            eprintln!("{:?}", err);
+            log::debug!("{:?}", err);
             return HttpResponse::InternalServerError().body("");
         }
     };
@@ -108,7 +108,7 @@ pub async fn get_media_origin(path: web::Path<String>, state: web::Data<AppState
     let mut conn = match create_connection(&state.data_dir).await {
         Ok(conn) => conn,
         Err(err) => {
-            eprintln!("{:?}", err);
+            log::debug!("{:?}", err);
             return HttpResponse::InternalServerError().body("");
         }
     };
@@ -139,7 +139,7 @@ pub async fn get_media_meta(path: web::Path<String>, state: web::Data<AppState>)
     let mut conn = match create_connection(&state.data_dir).await {
         Ok(conn) => conn,
         Err(err) => {
-            eprintln!("{:?}", err);
+            log::debug!("{:?}", err);
             return HttpResponse::InternalServerError().body("");
         }
     };

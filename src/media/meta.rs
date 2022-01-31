@@ -70,7 +70,6 @@ impl IdsFilter {
             .map(to_naive_datetime)
             .unwrap_or_else(|| Utc::now().naive_utc());
 
-        println!("{}", begin);
         let end = self
             .end
             .map(to_naive_datetime)
