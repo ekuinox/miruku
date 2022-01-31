@@ -113,7 +113,7 @@ pub async fn get_media_origin(path: web::Path<String>, state: web::Data<AppState
     };
     let media: Media = meta.into();
 
-    let thumb_buf = match media.get_origin(&state.data_dir).await {
+    let thumb_buf = match media.get_origin().await {
         Ok(buf) => buf,
         Err(_) => return HttpResponse::InternalServerError().body(""),
     };

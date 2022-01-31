@@ -49,7 +49,7 @@ impl Media {
     pub async fn generate(
         origin: &Path,
         data_directory: &Path,
-        option: &MediaGenerateOption,
+        _option: &MediaGenerateOption,
     ) -> Result<Self> {
         use super::thumb::create_thumb;
         use tokio::fs::*;
@@ -65,15 +65,6 @@ impl Media {
             return Ok(meta.into());
         }
 
-        let name = origin
-            .file_name()
-            .map(|s| s.to_str().map(|s| s.to_string()))
-            .flatten();
-        let name = match name {
-            Some(name) => name,
-            None => return Err(anyhow!("origin path is not satisfied")),
-        };
-
         // 日付を取得する
         // exif -> file created at -> now とフォールバックしたい
         let date = if let Ok(date) = get_exif_date(&origin).await {
@@ -85,7 +76,7 @@ impl Media {
         };
 
         // generate meta data
-        let meta = MediaMeta::new(name.clone(), hashed, date);
+        let meta = MediaMeta::new(origin.to_string_lossy().to_string(), hashed, date);
         let media_id = meta.media_id.clone();
         let _ = meta.save(&mut conn).await?;
 
@@ -100,14 +91,6 @@ impl Media {
 
         let source = origin.to_owned();
         let _ = task::spawn_blocking(move || create_thumb(&source, &dest)).await?;
-
-        // copy
-        let dest = media_directory.join(name);
-        let _ = copy(origin, &dest).await?;
-
-        if option.is_remove_source {
-            remove_file(origin).await?;
-        }
 
         Ok(Media { meta })
     }
@@ -161,16 +144,11 @@ impl Media {
     }
 
     /// オリジナルの画像を取得する
-    pub async fn get_origin(&self, data_directory: &Path) -> Result<Vec<u8>> {
+    pub async fn get_origin(&self) -> Result<Vec<u8>> {
         use tokio::fs::*;
         use tokio::io::AsyncReadExt;
 
-        let path = data_directory
-            .join(MEDIA_DIRECTORY_NAME)
-            .join(&*self.meta.media_id)
-            .join(&self.meta.origin);
-
-        let mut file = File::open(&path).await?;
+        let mut file = File::open(Path::new(&self.meta.origin)).await?;
         let mut buf = Vec::<u8>::new();
 
         let _ = file.read_to_end(&mut buf).await?;
