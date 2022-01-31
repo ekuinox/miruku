@@ -80,13 +80,19 @@ pub async fn get_media_thumb(path: web::Path<String>, state: web::Data<AppState>
 
     let meta = match MediaMeta::open(&mut conn, &path.into_inner()).await {
         Ok(meta) => meta,
-        Err(_) => return HttpResponse::NotFound().body(""),
+        Err(err) => {
+            eprintln!("{:?}", err);
+            return HttpResponse::NotFound().body("")
+        },
     };
     let media: Media = meta.into();
 
     let thumb_buf = match media.get_thumb(&state.data_dir).await {
         Ok(buf) => buf,
-        Err(_) => return HttpResponse::InternalServerError().body(""),
+        Err(err) => {
+            eprintln!("{:?}", err);
+            return HttpResponse::InternalServerError().body("");
+        }
     };
 
     HttpResponse::Ok()
