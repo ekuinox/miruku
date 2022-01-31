@@ -3,6 +3,7 @@ extern crate anyhow;
 
 use anyhow::Result;
 use clap::Parser;
+use std::path::PathBuf;
 
 mod media;
 mod server;
@@ -27,6 +28,9 @@ struct GenerateMediaSubcommand {
 
     #[clap(default_value = DEFAULT_DATA_DIR)]
     dest: String,
+
+    #[clap(short = 'w')]
+    watch: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -64,10 +68,48 @@ async fn main() -> Result<()> {
             use media::*;
             use std::path::Path;
 
+            // イベントのパスからMediaを生成する
+            async fn from_event_path(origin: PathBuf, dest: &Path, option: &MediaGenerateOption) {
+                if !media::common::is_target(&origin) {
+                    return;
+                }
+                if let Ok(origin) = origin.canonicalize() {
+                    print!("origin = {:#?}: ", origin);
+                    match Media::generate(&origin, &dest, &option).await {
+                        Ok(_media) => println!("OK"),
+                        Err(e) => eprintln!("{:?}", e),
+                    }
+                }
+            }
+
             let origin = Path::new(&s.origin);
             let dest = Path::new(&s.dest);
 
             let option = MediaGenerateOption {};
+
+            if s.watch {
+                use notify::{
+                    watcher,
+                    DebouncedEvent::{Create, Write},
+                    RecursiveMode, Watcher,
+                };
+                use std::sync::mpsc::channel;
+                use std::time::Duration;
+
+                let (tx, rx) = channel();
+
+                let mut watcher = watcher(tx, Duration::from_secs(5))?;
+                watcher.watch(&origin, RecursiveMode::Recursive)?;
+
+                loop {
+                    match rx.recv() {
+                        Ok(Write(origin)) => from_event_path(origin, &dest, &option).await,
+                        Ok(Create(origin)) => from_event_path(origin, &dest, &option).await,
+                        Ok(_event) => {}
+                        Err(e) => println!("watch error: {:?}", e),
+                    }
+                }
+            }
 
             if origin.is_dir() {
                 let medias = Media::generate_many(&origin, &dest, &option).await?;
