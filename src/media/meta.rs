@@ -126,6 +126,7 @@ pub struct MediaMeta {
     pub origin: String,
     pub visibility: MediaVisibility,
     pub date: NaiveDateTime,
+    pub hashed: Vec<u8>,
     pub attributes: Option<Json<HashMap<String, String>>>,
 }
 
@@ -136,9 +137,10 @@ struct MediaIdWithDateRow {
 }
 
 impl MediaMeta {
-    pub fn new(origin: String, date: NaiveDateTime) -> Self {
+    pub fn new(origin: String, hashed: Vec<u8>, date: NaiveDateTime) -> Self {
         MediaMeta {
             date,
+            hashed,
             origin,
             media_id: MediaId::new(),
             visibility: Default::default(),
@@ -166,8 +168,8 @@ impl MediaMeta {
         // とりあえず重複は考えない
         let _ = query_as::<_, MediaMeta>(
             r#"
-        insert into metas (media_id, origin, visibility, date, attributes)
-        values ($1, $2, $3, $4, $5)
+        insert into metas (media_id, origin, visibility, date, hashed, attributes)
+        values ($1, $2, $3, $4, $5, $6)
         returning *
         "#,
         )
@@ -175,6 +177,7 @@ impl MediaMeta {
         .bind(self.origin.to_string())
         .bind(self.visibility)
         .bind(self.date)
+        .bind(&self.hashed)
         .bind(self.attributes.as_ref())
         .fetch_one(conn)
         .await?;
@@ -185,6 +188,14 @@ impl MediaMeta {
     pub async fn open(conn: &mut SqliteConnection, media_id: &String) -> Result<Self> {
         let meta = query_as("select * from metas where media_id = $1")
             .bind(media_id.to_string())
+            .fetch_one(conn)
+            .await?;
+        Ok(meta)
+    }
+
+    pub async fn get_by_hashed(conn: &mut SqliteConnection, hashed: &Vec<u8>) -> Result<Self> {
+        let meta = query_as("select * from metas where hashed = $1")
+            .bind(hashed)
             .fetch_one(conn)
             .await?;
         Ok(meta)

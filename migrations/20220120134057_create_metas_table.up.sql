@@ -5,5 +5,6 @@ CREATE TABLE metas (
     origin TEXT NOT NULL,
     visibility INTEGER NOT NULL,
     date DATETIME NOT NULL,
+    hashed BLOB NOT NULL UNIQUE,
     attributes JSON
 )

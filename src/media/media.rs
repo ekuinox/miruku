@@ -56,6 +56,15 @@ impl Media {
 
         let mut conn = create_connection(data_directory).await?;
 
+        // ファイルのハッシュ値を取得する
+        let hashed = get_file_hash(&origin).await?;
+
+        // ハッシュ値が一致している場合は生成しない
+        if let Ok(meta) = MediaMeta::get_by_hashed(&mut conn, &hashed).await {
+            eprintln!("Already media created. file={:#?}", origin);
+            return Ok(meta.into());
+        }
+
         let name = origin
             .file_name()
             .map(|s| s.to_str().map(|s| s.to_string()))
@@ -76,7 +85,7 @@ impl Media {
         };
 
         // generate meta data
-        let meta = MediaMeta::new(name.clone(), date);
+        let meta = MediaMeta::new(name.clone(), hashed, date);
         let media_id = meta.media_id.clone();
         let _ = meta.save(&mut conn).await?;
 
@@ -214,4 +223,22 @@ async fn get_file_created_date(path: &Path) -> Result<chrono::NaiveDateTime> {
     };
 
     Ok(created)
+}
+
+/// パスで与えたファイルのハッシュ値を取得する
+async fn get_file_hash(path: &Path) -> Result<Vec<u8>> {
+    use sha2::{Digest, Sha512};
+    use tokio::{fs::File, io::AsyncReadExt};
+
+    let mut file = File::open(&path).await?;
+    let mut buf = vec![];
+    let _ = file.read_to_end(&mut buf).await?;
+
+    let mut hasher = Sha512::new();
+    hasher.update(&buf);
+
+    let hashed = hasher.finalize();
+    let hashed = hashed.into_iter().collect::<Vec<_>>();
+
+    Ok(hashed)
 }
