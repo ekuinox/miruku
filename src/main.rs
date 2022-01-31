@@ -15,7 +15,7 @@ const DEFAULT_SERVER_PORT: &'static str = "9999";
 struct StartServerSubcommand {
     #[clap(default_value = DEFAULT_DATA_DIR)]
     data_dir: String,
-    
+
     #[clap(default_value = DEFAULT_SERVER_PORT)]
     port: u64,
 }
@@ -27,9 +27,6 @@ struct GenerateMediaSubcommand {
 
     #[clap(default_value = DEFAULT_DATA_DIR)]
     dest: String,
-
-    #[clap(long)]
-    without_remove: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -70,9 +67,7 @@ async fn main() -> Result<()> {
             let origin = Path::new(&s.origin);
             let dest = Path::new(&s.dest);
 
-            let option = MediaGenerateOption {
-                is_remove_source: !s.without_remove,
-            };
+            let option = MediaGenerateOption {};
 
             if origin.is_dir() {
                 let medias = Media::generate_many(&origin, &dest, &option).await?;

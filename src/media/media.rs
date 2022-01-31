@@ -31,16 +31,11 @@ impl From<MediaMeta> for Media {
     }
 }
 
-pub struct MediaGenerateOption {
-    /// ファイルをコピーした後、元のファイルを削除する
-    pub is_remove_source: bool,
-}
+pub struct MediaGenerateOption {}
 
 impl Default for MediaGenerateOption {
     fn default() -> Self {
-        MediaGenerateOption {
-            is_remove_source: true,
-        }
+        MediaGenerateOption {}
     }
 }
 
