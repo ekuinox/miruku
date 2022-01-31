@@ -33,6 +33,16 @@ pub fn get_filenames_recursive(path: &Path, depth: u32) -> Vec<PathBuf> {
         .collect()
 }
 
+/// 対象のファイルかチェックする
+pub fn is_target(path: &Path) -> bool {
+    path.extension()
+        .map(|ext| {
+            let ext = ext.to_string_lossy().to_string().to_lowercase();
+            TARGET_EXTENSIONS.contains(&ext.as_str())
+        })
+        .unwrap_or(false)
+}
+
 /// 画像(jpeg)ファイルのみをリストで取得する
 /// フルパスで取得する
 pub fn get_image_filenames(dir: &Path) -> Vec<PathBuf> {
@@ -44,15 +54,7 @@ pub fn get_image_filenames(dir: &Path) -> Vec<PathBuf> {
     let entries = entries
         .into_iter()
         .flat_map(|path| {
-            // 対象の拡張子かチェックする
-            let is_target = path
-                .extension()
-                .map(|ext| {
-                    let ext = ext.to_string_lossy().to_string().to_lowercase();
-                    TARGET_EXTENSIONS.contains(&ext.as_str())
-                })
-                .unwrap_or(false);
-            if is_target {
+            if is_target(&path) {
                 path.canonicalize().ok()
             } else {
                 None
