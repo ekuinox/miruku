@@ -154,7 +154,7 @@ impl Media {
 
 /// EXIF から 日付を取得する
 async fn get_exif_date(path: &Path) -> Result<chrono::NaiveDateTime> {
-    use chrono::NaiveDateTime;
+    use chrono::{Local, TimeZone};
     use exif::{In, Reader, Tag};
     use std::fs::File; // ここtoio化したい
     use std::io::BufReader;
@@ -171,7 +171,8 @@ async fn get_exif_date(path: &Path) -> Result<chrono::NaiveDateTime> {
     };
 
     // できればミリ秒までの精度が欲しいけどなあ
-    let date = NaiveDateTime::parse_from_str(field.as_str(), "%Y-%m-%d %H:%M:%S")?;
+    let date = Local.datetime_from_str(field.as_str(), "%Y-%m-%d %H:%M:%S")?;
+    let date = date.naive_local();
 
     Ok(date)
 }
