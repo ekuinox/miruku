@@ -1,9 +1,7 @@
-use super::common::*;
-use super::meta::*;
+use super::{common::*, meta::*};
 use anyhow::Result;
-use chrono::Utc;
-use sqlx::Connection;
-use sqlx::SqliteConnection;
+use chrono::prelude::*;
+use sqlx::{Connection, SqliteConnection};
 use std::path::Path;
 use tokio::task;
 
@@ -154,7 +152,6 @@ impl Media {
 
 /// EXIF から 日付を取得する
 async fn get_exif_date(path: &Path) -> Result<chrono::NaiveDateTime> {
-    use chrono::{Local, TimeZone};
     use exif::{In, Reader, Tag};
     use std::fs::File; // ここtoio化したい
     use std::io::BufReader;
@@ -179,7 +176,6 @@ async fn get_exif_date(path: &Path) -> Result<chrono::NaiveDateTime> {
 
 /// ファイルのメタデータから日付を取得する
 async fn get_file_created_date(path: &Path) -> Result<chrono::NaiveDateTime> {
-    use chrono::{Local, NaiveDateTime, TimeZone};
     use std::time::UNIX_EPOCH;
     use tokio::fs::File;
 
