@@ -179,7 +179,7 @@ async fn get_exif_date(path: &Path) -> Result<chrono::NaiveDateTime> {
 
 /// ファイルのメタデータから日付を取得する
 async fn get_file_created_date(path: &Path) -> Result<chrono::NaiveDateTime> {
-    use chrono::NaiveDateTime;
+    use chrono::{Local, NaiveDateTime, TimeZone};
     use std::time::UNIX_EPOCH;
     use tokio::fs::File;
 
@@ -190,11 +190,12 @@ async fn get_file_created_date(path: &Path) -> Result<chrono::NaiveDateTime> {
     let created = created.duration_since(UNIX_EPOCH)?;
     let created = match NaiveDateTime::from_timestamp_opt(
         created.as_secs() as i64,
-        created.as_nanos() as u32,
+        created.subsec_nanos() as u32,
     ) {
         Some(created) => created,
         _ => bail!("Err create NaiveDateTime"),
     };
+    let created = Local.from_utc_datetime(&created).naive_local();
 
     Ok(created)
 }
