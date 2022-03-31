@@ -37,14 +37,14 @@ struct GenerateMediaSubcommand {
 #[clap(about, version, author)]
 enum App {
     #[clap(name = "start-server")]
-    StartServerSubcommand(StartServerSubcommand),
+    StartServer(StartServerSubcommand),
 
     #[clap(name = "generate-media")]
-    GenerateMediaSubcommand(GenerateMediaSubcommand),
+    GenerateMedia(GenerateMediaSubcommand),
 
     /// データベースに記録した時刻を Local に直す
     #[clap(name = "fix-date")]
-    FixDateSubcommand { database_path: String },
+    FixDate { database_path: String },
 }
 
 #[tokio::main]
@@ -55,7 +55,7 @@ async fn main() -> Result<()> {
     env_logger::init();
 
     match args {
-        App::StartServerSubcommand(s) => {
+        App::StartServer(s) => {
             use server::*;
             use std::path::Path;
 
@@ -68,7 +68,7 @@ async fn main() -> Result<()> {
 
             Ok(())
         }
-        App::GenerateMediaSubcommand(s) => {
+        App::GenerateMedia(s) => {
             use media::*;
             use std::path::Path;
 
@@ -129,7 +129,7 @@ async fn main() -> Result<()> {
 
             Ok(())
         }
-        App::FixDateSubcommand { database_path } => fix_date(&database_path).await,
+        App::FixDate { database_path } => fix_date(&database_path).await,
     }
 }
 
