@@ -41,6 +41,10 @@ enum App {
 
     #[clap(name = "generate-media")]
     GenerateMediaSubcommand(GenerateMediaSubcommand),
+
+    /// データベースに記録した時刻を Local に直す
+    #[clap(name = "fix-date")]
+    FixDateSubcommand { database_path: String },
 }
 
 #[tokio::main]
@@ -125,5 +129,45 @@ async fn main() -> Result<()> {
 
             Ok(())
         }
+        App::FixDateSubcommand { database_path } => fix_date(&database_path).await,
     }
+}
+
+async fn fix_date(data_dir: &str) -> Result<()> {
+    use chrono::prelude::*;
+    use media::*;
+    use sqlx::{prelude::*, query_as, SqliteConnection};
+
+    #[derive(FromRow, Debug, Clone)]
+    struct MediaIdWithDateRow {
+        pub media_id: MediaId,
+        pub date: NaiveDateTime,
+    }
+
+    let mut conn = SqliteConnection::connect(data_dir).await?;
+
+    let medias: Vec<MediaIdWithDateRow> = query_as(
+        r#"
+        select media_id, date, visibility from metas
+        order by date desc
+        "#,
+    )
+    .fetch_all(&mut conn)
+    .await?;
+
+    for MediaIdWithDateRow { media_id, date } in medias {
+        let local_date = Local.from_utc_datetime(&date).naive_local();
+        const QUERY: &str = r#"
+            update metas
+            set date = ?
+            where media_id = ?
+        "#;
+        let _ = sqlx::query(QUERY)
+            .bind(local_date)
+            .bind(media_id)
+            .execute(&mut conn)
+            .await?;
+    }
+
+    Ok(())
 }
