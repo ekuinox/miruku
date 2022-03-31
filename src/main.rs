@@ -8,8 +8,8 @@ use std::path::PathBuf;
 mod media;
 mod server;
 
-const DEFAULT_DATA_DIR: &'static str = "./data";
-const DEFAULT_SERVER_PORT: &'static str = "9999";
+const DEFAULT_DATA_DIR: &str = "./data";
+const DEFAULT_SERVER_PORT: &str = "9999";
 
 #[derive(Parser, Debug)]
 #[clap(about, version, author)]
@@ -37,10 +37,14 @@ struct GenerateMediaSubcommand {
 #[clap(about, version, author)]
 enum App {
     #[clap(name = "start-server")]
-    StartServerSubcommand(StartServerSubcommand),
+    StartServer(StartServerSubcommand),
 
     #[clap(name = "generate-media")]
-    GenerateMediaSubcommand(GenerateMediaSubcommand),
+    GenerateMedia(GenerateMediaSubcommand),
+
+    /// データベースに記録した時刻を Local に直す
+    #[clap(name = "fix-date")]
+    FixDate { database_path: String },
 }
 
 #[tokio::main]
@@ -51,7 +55,7 @@ async fn main() -> Result<()> {
     env_logger::init();
 
     match args {
-        App::StartServerSubcommand(s) => {
+        App::StartServer(s) => {
             use server::*;
             use std::path::Path;
 
@@ -64,7 +68,7 @@ async fn main() -> Result<()> {
 
             Ok(())
         }
-        App::GenerateMediaSubcommand(s) => {
+        App::GenerateMedia(s) => {
             use media::*;
             use std::path::Path;
 
@@ -75,7 +79,7 @@ async fn main() -> Result<()> {
                 }
                 if let Ok(origin) = origin.canonicalize() {
                     log::info!("start origin ({:#?})", origin);
-                    match Media::generate(&origin, &dest, &option).await {
+                    match Media::generate(&origin, dest, option).await {
                         Ok(media) => log::info!("{:#?}: OK", media.meta.origin),
                         Err(e) => log::info!("{:#?}: {:?}", origin, e),
                     }
@@ -103,8 +107,8 @@ async fn main() -> Result<()> {
 
                 loop {
                     match rx.recv() {
-                        Ok(Write(origin)) => from_event_path(origin, &dest, &option).await,
-                        Ok(Create(origin)) => from_event_path(origin, &dest, &option).await,
+                        Ok(Write(origin)) => from_event_path(origin, dest, &option).await,
+                        Ok(Create(origin)) => from_event_path(origin, dest, &option).await,
                         Ok(_event) => {}
                         Err(e) => log::debug!("watch error: {:?}", e),
                     }
@@ -112,18 +116,58 @@ async fn main() -> Result<()> {
             }
 
             if origin.is_dir() {
-                let medias = Media::generate_many(&origin, &dest, &option).await?;
+                let medias = Media::generate_many(origin, dest, &option).await?;
 
                 log::debug!("{:#?}", medias);
 
                 return Ok(());
             }
 
-            let media = Media::generate(&origin, &dest, &option).await?;
+            let media = Media::generate(origin, dest, &option).await?;
 
             log::debug!("{:#?}", media);
 
             Ok(())
         }
+        App::FixDate { database_path } => fix_date(&database_path).await,
     }
+}
+
+async fn fix_date(data_dir: &str) -> Result<()> {
+    use chrono::prelude::*;
+    use media::*;
+    use sqlx::{prelude::*, query_as, SqliteConnection};
+
+    #[derive(FromRow, Debug, Clone)]
+    struct MediaIdWithDateRow {
+        pub media_id: MediaId,
+        pub date: NaiveDateTime,
+    }
+
+    let mut conn = SqliteConnection::connect(data_dir).await?;
+
+    let medias: Vec<MediaIdWithDateRow> = query_as(
+        r#"
+        select media_id, date, visibility from metas
+        order by date desc
+        "#,
+    )
+    .fetch_all(&mut conn)
+    .await?;
+
+    for MediaIdWithDateRow { media_id, date } in medias {
+        let local_date = Local.from_utc_datetime(&date).naive_utc();
+        const QUERY: &str = r#"
+            update metas
+            set date = ?
+            where media_id = ?
+        "#;
+        let _ = sqlx::query(QUERY)
+            .bind(local_date)
+            .bind(media_id)
+            .execute(&mut conn)
+            .await?;
+    }
+
+    Ok(())
 }

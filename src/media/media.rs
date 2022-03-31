@@ -1,14 +1,12 @@
-use super::common::*;
-use super::meta::*;
+use super::{common::*, meta::*};
 use anyhow::Result;
-use chrono::Utc;
-use sqlx::Connection;
-use sqlx::SqliteConnection;
+use chrono::prelude::*;
+use sqlx::{Connection, SqliteConnection};
 use std::path::Path;
 use tokio::task;
 
 // サムネイルの画像ファイル名
-const THUMB_FILE_NAME: &'static str = "thumb.jpg";
+const THUMB_FILE_NAME: &str = "thumb.jpg";
 
 // SQLite3データベースを返す
 pub async fn create_connection(data_directory: &Path) -> Result<SqliteConnection> {
@@ -31,13 +29,8 @@ impl From<MediaMeta> for Media {
     }
 }
 
+#[derive(Default)]
 pub struct MediaGenerateOption {}
-
-impl Default for MediaGenerateOption {
-    fn default() -> Self {
-        MediaGenerateOption {}
-    }
-}
 
 impl Media {
     /// ファイルを指定して生成する
@@ -52,7 +45,7 @@ impl Media {
         let mut conn = create_connection(data_directory).await?;
 
         // ファイルのハッシュ値を取得する
-        let hashed = get_file_hash(&origin).await?;
+        let hashed = get_file_hash(origin).await?;
 
         // ハッシュ値が一致している場合は生成しない
         if let Ok(meta) = MediaMeta::get_by_hashed(&mut conn, &hashed).await {
@@ -62,9 +55,9 @@ impl Media {
 
         // 日付を取得する
         // exif -> file created at -> now とフォールバックしたい
-        let date = if let Ok(date) = get_exif_date(&origin).await {
+        let date = if let Ok(date) = get_exif_date(origin).await {
             date
-        } else if let Ok(date) = get_file_created_date(&origin).await {
+        } else if let Ok(date) = get_file_created_date(origin).await {
             date
         } else {
             Utc::now().naive_utc()
@@ -104,7 +97,7 @@ impl Media {
 
         let entries = entries
             .iter()
-            .map(|entry| Media::generate(&entry, data_directory, option));
+            .map(|entry| Media::generate(entry, data_directory, option));
         let mut medias = Vec::<Media>::with_capacity(entries.len());
         let mut stream = stream::iter(entries);
 
@@ -154,7 +147,6 @@ impl Media {
 
 /// EXIF から 日付を取得する
 async fn get_exif_date(path: &Path) -> Result<chrono::NaiveDateTime> {
-    use chrono::NaiveDateTime;
     use exif::{In, Reader, Tag};
     use std::fs::File; // ここtoio化したい
     use std::io::BufReader;
@@ -171,14 +163,14 @@ async fn get_exif_date(path: &Path) -> Result<chrono::NaiveDateTime> {
     };
 
     // できればミリ秒までの精度が欲しいけどなあ
-    let date = NaiveDateTime::parse_from_str(field.as_str(), "%Y-%m-%d %H:%M:%S")?;
+    let date = Local.datetime_from_str(field.as_str(), "%Y-%m-%d %H:%M:%S")?;
+    let date = date.naive_utc();
 
     Ok(date)
 }
 
 /// ファイルのメタデータから日付を取得する
 async fn get_file_created_date(path: &Path) -> Result<chrono::NaiveDateTime> {
-    use chrono::NaiveDateTime;
     use std::time::UNIX_EPOCH;
     use tokio::fs::File;
 
@@ -189,11 +181,12 @@ async fn get_file_created_date(path: &Path) -> Result<chrono::NaiveDateTime> {
     let created = created.duration_since(UNIX_EPOCH)?;
     let created = match NaiveDateTime::from_timestamp_opt(
         created.as_secs() as i64,
-        created.as_nanos() as u32,
+        created.subsec_nanos() as u32,
     ) {
         Some(created) => created,
         _ => bail!("Err create NaiveDateTime"),
     };
+    let created = Local.from_utc_datetime(&created).naive_utc();
 
     Ok(created)
 }

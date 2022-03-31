@@ -112,7 +112,7 @@ impl MediaId {
         .fetch_all(conn)
         .await?;
         let last = ids.last().map(|row| row.date).unwrap_or(end);
-        let ids: Vec<MediaId> = ids.into_iter().map(|row| row.media_id.into()).collect();
+        let ids: Vec<MediaId> = ids.into_iter().map(|row| row.media_id).collect();
 
         Ok((ids, last))
     }
@@ -184,7 +184,7 @@ impl MediaMeta {
         Ok(())
     }
 
-    pub async fn open(conn: &mut SqliteConnection, media_id: &String) -> Result<Self> {
+    pub async fn open(conn: &mut SqliteConnection, media_id: &str) -> Result<Self> {
         let meta = query_as("select * from metas where media_id = $1")
             .bind(media_id.to_string())
             .fetch_one(conn)
@@ -192,7 +192,7 @@ impl MediaMeta {
         Ok(meta)
     }
 
-    pub async fn get_by_hashed(conn: &mut SqliteConnection, hashed: &Vec<u8>) -> Result<Self> {
+    pub async fn get_by_hashed(conn: &mut SqliteConnection, hashed: &[u8]) -> Result<Self> {
         let meta = query_as("select * from metas where hashed = $1")
             .bind(hashed)
             .fetch_one(conn)
