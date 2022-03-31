@@ -2,6 +2,7 @@
 extern crate anyhow;
 
 use anyhow::Result;
+use chrono::LocalResult;
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -154,16 +155,27 @@ async fn fix_date(data_dir: &str) -> Result<()> {
     )
     .fetch_all(&mut conn)
     .await?;
-
-    for MediaIdWithDateRow { media_id, date } in medias {
-        let local_date = Local.from_utc_datetime(&date).naive_utc();
+    let medias_count = medias.len();
+    let medias = medias
+        .into_iter()
+        .flat_map(|MediaIdWithDateRow { media_id, date }| {
+            // date が Local のまま Utc のものとして放り込まれているので、Local -> Utc に変換してアップデートする
+            match Local.from_local_datetime(&date) {
+                LocalResult::<_>::Single(date) => (media_id, date.naive_utc()).into(),
+                _ => None,
+            }
+        })
+        .collect::<Vec<_>>();
+    ensure!(medias.len() == medias_count);
+    
+    for (media_id, date) in medias {
         const QUERY: &str = r#"
             update metas
             set date = ?
             where media_id = ?
         "#;
         let _ = sqlx::query(QUERY)
-            .bind(local_date)
+            .bind(date)
             .bind(media_id)
             .execute(&mut conn)
             .await?;
