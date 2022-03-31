@@ -60,7 +60,7 @@ pub async fn get_media_ids(req: HttpRequest) -> HttpResponse {
         }
         Err(err) => {
             log::debug!("{:?}", err);
-            return HttpResponse::InternalServerError().body("");
+            HttpResponse::InternalServerError().body("")
         }
     }
 }

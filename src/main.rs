@@ -8,8 +8,8 @@ use std::path::PathBuf;
 mod media;
 mod server;
 
-const DEFAULT_DATA_DIR: &'static str = "./data";
-const DEFAULT_SERVER_PORT: &'static str = "9999";
+const DEFAULT_DATA_DIR: &str = "./data";
+const DEFAULT_SERVER_PORT: &str = "9999";
 
 #[derive(Parser, Debug)]
 #[clap(about, version, author)]
@@ -75,7 +75,7 @@ async fn main() -> Result<()> {
                 }
                 if let Ok(origin) = origin.canonicalize() {
                     log::info!("start origin ({:#?})", origin);
-                    match Media::generate(&origin, &dest, &option).await {
+                    match Media::generate(&origin, dest, option).await {
                         Ok(media) => log::info!("{:#?}: OK", media.meta.origin),
                         Err(e) => log::info!("{:#?}: {:?}", origin, e),
                     }
@@ -103,8 +103,8 @@ async fn main() -> Result<()> {
 
                 loop {
                     match rx.recv() {
-                        Ok(Write(origin)) => from_event_path(origin, &dest, &option).await,
-                        Ok(Create(origin)) => from_event_path(origin, &dest, &option).await,
+                        Ok(Write(origin)) => from_event_path(origin, dest, &option).await,
+                        Ok(Create(origin)) => from_event_path(origin, dest, &option).await,
                         Ok(_event) => {}
                         Err(e) => log::debug!("watch error: {:?}", e),
                     }
@@ -112,14 +112,14 @@ async fn main() -> Result<()> {
             }
 
             if origin.is_dir() {
-                let medias = Media::generate_many(&origin, &dest, &option).await?;
+                let medias = Media::generate_many(origin, dest, &option).await?;
 
                 log::debug!("{:#?}", medias);
 
                 return Ok(());
             }
 
-            let media = Media::generate(&origin, &dest, &option).await?;
+            let media = Media::generate(origin, dest, &option).await?;
 
             log::debug!("{:#?}", media);
 

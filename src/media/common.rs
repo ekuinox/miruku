@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 const TARGET_EXTENSIONS: [&str; 2] = ["jpeg", "jpg"];
 
 // メディアのディレクトリ
-pub const MEDIA_DIRECTORY_NAME: &'static str = "media";
+pub const MEDIA_DIRECTORY_NAME: &str = "media";
 
 /// path のファイルを再起的に全て取得する
 pub fn get_filenames_recursive(path: &Path, depth: u32) -> Vec<PathBuf> {
@@ -27,7 +27,7 @@ pub fn get_filenames_recursive(path: &Path, depth: u32) -> Vec<PathBuf> {
             if path.is_dir() {
                 get_filenames_recursive(&path, depth - 1)
             } else {
-                vec![path.to_owned()]
+                vec![path]
             }
         })
         .collect()
@@ -51,7 +51,9 @@ pub fn get_image_filenames(dir: &Path) -> Vec<PathBuf> {
 
     let entries = get_filenames_recursive(dir, RECURSIVE_DEPTH);
 
-    let entries = entries
+    
+
+    entries
         .into_iter()
         .flat_map(|path| {
             if is_target(&path) {
@@ -60,7 +62,5 @@ pub fn get_image_filenames(dir: &Path) -> Vec<PathBuf> {
                 None
             }
         })
-        .collect::<Vec<_>>();
-
-    entries
+        .collect::<Vec<_>>()
 }
