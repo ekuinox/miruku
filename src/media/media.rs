@@ -164,7 +164,7 @@ async fn get_exif_date(path: &Path) -> Result<chrono::NaiveDateTime> {
 
     // できればミリ秒までの精度が欲しいけどなあ
     let date = Local.datetime_from_str(field.as_str(), "%Y-%m-%d %H:%M:%S")?;
-    let date = date.naive_local();
+    let date = date.naive_utc();
 
     Ok(date)
 }
@@ -186,7 +186,7 @@ async fn get_file_created_date(path: &Path) -> Result<chrono::NaiveDateTime> {
         Some(created) => created,
         _ => bail!("Err create NaiveDateTime"),
     };
-    let created = Local.from_utc_datetime(&created).naive_local();
+    let created = Local.from_utc_datetime(&created).naive_utc();
 
     Ok(created)
 }

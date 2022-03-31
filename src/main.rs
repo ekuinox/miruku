@@ -156,7 +156,7 @@ async fn fix_date(data_dir: &str) -> Result<()> {
     .await?;
 
     for MediaIdWithDateRow { media_id, date } in medias {
-        let local_date = Local.from_utc_datetime(&date).naive_local();
+        let local_date = Local.from_utc_datetime(&date).naive_utc();
         const QUERY: &str = r#"
             update metas
             set date = ?
